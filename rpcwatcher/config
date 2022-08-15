@@ -1,0 +1,5 @@
+	DatabaseConnectionURL="postgresql://root@localhost:26257/defaultdb?sslmode=disable"
+	RedisURL="redis://root:password123@localhost:6379"
+	ApiURL               ="http://localhost:8000"
+	Debug=true
+	JSONLogs=true
