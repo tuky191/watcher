@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"rpc_watcher/rpcwatcher/database"
+	producer "rpc_watcher/rpcwatcher/pulsar"
 	"rpc_watcher/rpcwatcher/store"
 	"strconv"
 	"time"
@@ -95,6 +96,7 @@ type Watcher struct {
 	d                 *database.Instance
 	l                 *zap.SugaredLogger
 	store             *store.Store
+	producer          *producer.Instance
 	runContext        context.Context
 	endpoint          string
 	grpcEndpoint      string
@@ -110,6 +112,7 @@ func NewWatcher(
 	apiUrl, grpcEndpoint string,
 	db *database.Instance,
 	s *store.Store,
+	p *producer.Instance,
 	subscriptions []string,
 	eventTypeMappings map[string][]DataHandler,
 ) (*Watcher, error) {
@@ -151,6 +154,7 @@ func NewWatcher(
 		client:            ws,
 		l:                 logger,
 		store:             s,
+		producer:          p,
 		Name:              chainName,
 		endpoint:          endpoint,
 		grpcEndpoint:      grpcEndpoint,
@@ -266,7 +270,7 @@ func resubscribe(w *Watcher) {
 		count++
 		w.l.Debugw("this is count", "count", count)
 
-		ww, err := NewWatcher(w.endpoint, w.Name, w.l, w.apiUrl, w.grpcEndpoint, w.d, w.store, w.subs, w.eventTypeMappings)
+		ww, err := NewWatcher(w.endpoint, w.Name, w.l, w.apiUrl, w.grpcEndpoint, w.d, w.store, w.producer, w.subs, w.eventTypeMappings)
 		if err != nil {
 			w.l.Errorw("cannot resubscribe to chain", "name", w.Name, "endpoint", w.endpoint, "error", err)
 			continue
@@ -541,6 +545,7 @@ func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 	if realData.Block == nil {
 		w.l.Warnw("weird block received on rpc, it was empty while it shouldn't", "chain_name", w.Name)
 	}
+	producer.SendMessage(w.producer)
 
 	b := store.NewBlocks(w.store)
 

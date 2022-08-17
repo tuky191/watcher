@@ -19,6 +19,15 @@ services:
       - '8080:8080'
     command: start-single-node --insecure
 
+  pulsar_manager:
+    image: apachepulsar/pulsar-manager:v0.2.0
+    ports:
+      - '9527:9527'
+      - '7750:7750'
+    environment:
+      SPRING_CONFIGURATION_FILE: /pulsar-manager/pulsar-manager/application.properties
+    networks:
+      - watcher
   pulsar:
     image: apachepulsar/pulsar:2.6.0
     container_name: pulsar

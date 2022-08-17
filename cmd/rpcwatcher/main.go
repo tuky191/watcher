@@ -20,10 +20,11 @@ import (
 
 	"rpc_watcher/rpcwatcher/logging"
 
+	_ "net/http/pprof"
+	producer "rpc_watcher/rpcwatcher/pulsar"
+
 	"github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
 	cnsmodels "github.com/emerishq/demeris-backend-models/cns"
-
-	_ "net/http/pprof"
 )
 
 var Version = "0.01"
@@ -150,7 +151,17 @@ func main() {
 func startNewWatcher(chainName string, chainsMap map[string]cnsmodels.Chain, config *rpcwatcher.Config, db *database.Instance, s *store.Store,
 	l *zap.SugaredLogger, isNewChain bool) (map[string]cnsmodels.Chain, *rpcwatcher.Watcher, context.CancelFunc, bool) {
 	eventMappings := rpcwatcher.StandardMappings
+	client_options := producer.ClientOptions{
+		URL:               "pulsar://localhost:6650",
+		OperationTimeout:  30 * time.Second,
+		ConnectionTimeout: 30 * time.Second,
+	}
+	producer_options := producer.ProducerOptions{Topic: chainName}
+	p, err := producer.New(&client_options, &producer_options)
 
+	if err != nil {
+		l.Panicw("unable to start pulsar producer", "error", err)
+	}
 	//grpcEndpoint := fmt.Sprintf("%s:%d", chainName, grpcPort)
 	grpcEndpoint := fmt.Sprintf("%s:%d", "127.0.0.1", grpcPort)
 	if chainName == "localterra" { // special case, needs to observe new blocks too
@@ -201,7 +212,7 @@ func startNewWatcher(chainName string, chainsMap map[string]cnsmodels.Chain, con
 	//spew.Dump(s)
 	//spew.Dump(rpcwatcher.EventsToSubTo)
 	//spew.Dump(eventMappings)
-	watcher, err := rpcwatcher.NewWatcher(endpoint(chainName), chainName, l, config.ApiURL, grpcEndpoint, db, s, rpcwatcher.EventsToSubTo, eventMappings)
+	watcher, err := rpcwatcher.NewWatcher(endpoint(chainName), chainName, l, config.ApiURL, grpcEndpoint, db, s, p, rpcwatcher.EventsToSubTo, eventMappings)
 	//spew.Dump(err)
 	if err != nil {
 		if isNewChain {

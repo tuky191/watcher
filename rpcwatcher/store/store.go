@@ -77,7 +77,7 @@ func NewClient(connUrl string) (*Store, error) {
 
 	store.Config.ExpiryTime = defaultExpiry
 	store.Cdc = cdc
-	spew.Dump(store)
+	//spew.Dump(store)
 	return &store, nil
 
 }

@@ -7,7 +7,6 @@ import (
 	dbutils "rpc_watcher/rpcwatcher/dbutils"
 
 	"github.com/cockroachdb/cockroach-go/v2/testserver"
-	"github.com/davecgh/go-spew/spew"
 	cnsmodels "github.com/emerishq/demeris-backend-models/cns"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
@@ -73,7 +72,7 @@ func (i *Instance) Chain(chain string) (cnsmodels.Chain, error) {
 
 func (i *Instance) Chains() ([]cnsmodels.Chain, error) {
 	var c []cnsmodels.Chain
-	spew.Dump(c)
+	//spew.Dump(c)
 	return c, i.d.Exec("SELECT * FROM cns.chains", nil, &c)
 }
 
