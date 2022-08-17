@@ -44,7 +44,7 @@ func formatDenom(w *Watcher, data coretypes.ResultEvent) (cnsmodels.Denom, error
 		return d, fmt.Errorf("unable to parse deposit coins")
 	}
 
-	cosmoshub, err := w.d.Chain("cosmos-hub")
+	cosmoshub, err := w.d.Chain("localterra")
 	if err != nil {
 		return d, err
 	}
@@ -61,7 +61,7 @@ func formatDenom(w *Watcher, data coretypes.ResultEvent) (cnsmodels.Denom, error
 				return d, err
 			}
 
-			u.Path = fmt.Sprintf("chain/%s/denom/verify_trace/%s", "cosmos-hub", coin.Denom[4:])
+			u.Path = fmt.Sprintf("chain/%s/denom/verify_trace/%s", "localterra", coin.Denom[4:])
 			endpoint := u.String()
 
 			resp, err := http.Get(endpoint) //nolint url variable defined locally

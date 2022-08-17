@@ -19,6 +19,23 @@ services:
       - '8080:8080'
     command: start-single-node --insecure
 
+  pulsar:
+    image: apachepulsar/pulsar:2.6.0
+    container_name: pulsar
+    ports:
+      - 8081:8080
+      - 6650:6650
+    environment:
+      PULSAR_MEM: ' -Xms512m -Xmx512m -XX:MaxDirectMemorySize=1g'
+    volumes:
+      - pulsardata:/pulsar/data
+      - pulsarconf:/pulsar/conf
+    command: /bin/bash -c "bin/pulsar standalone"
+    networks:
+      - watcher
+volumes:
+  pulsardata:
+  pulsarconf:
 networks:
   watcher:
     driver: bridge

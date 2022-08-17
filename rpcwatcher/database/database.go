@@ -33,7 +33,7 @@ func New(connString string) (*Instance, error) {
 }
 
 func (i *Instance) UpdateDenoms(chain cnsmodels.Chain) error {
-	spew.Dump(chain)
+	//spew.Dump(chain)
 	n, err := i.d.DB.PrepareNamed(`UPDATE cns.chains 
 	SET denoms=:denoms 
 	WHERE chain_name=:chain_name;`)

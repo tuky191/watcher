@@ -151,12 +151,12 @@ func startNewWatcher(chainName string, chainsMap map[string]cnsmodels.Chain, con
 	l *zap.SugaredLogger, isNewChain bool) (map[string]cnsmodels.Chain, *rpcwatcher.Watcher, context.CancelFunc, bool) {
 	eventMappings := rpcwatcher.StandardMappings
 
-	grpcEndpoint := fmt.Sprintf("%s:%d", chainName, grpcPort)
+	//grpcEndpoint := fmt.Sprintf("%s:%d", chainName, grpcPort)
+	grpcEndpoint := fmt.Sprintf("%s:%d", "127.0.0.1", grpcPort)
+	if chainName == "localterra" { // special case, needs to observe new blocks too
+		eventMappings = rpcwatcher.TerraMappings
 
-	if chainName == "cosmos-hub" { // special case, needs to observe new blocks too
-		eventMappings = rpcwatcher.CosmosHubMappings
-
-		// caching node_info for cosmos-hub
+		// caching node_info for localterra
 		grpcConn, err := grpc.Dial(
 			grpcEndpoint,
 			grpc.WithInsecure(),
@@ -176,31 +176,33 @@ func startNewWatcher(chainName string, chainsMap map[string]cnsmodels.Chain, con
 		if err != nil {
 			l.Errorw("cannot get node info", "error", err)
 		}
-
+		//spew.Dump(nodeInfoRes)
 		bz, err := s.Cdc.MarshalJSON(nodeInfoRes)
 		if err != nil {
 			l.Errorw("cannot marshal node info", "error", err)
 		}
-
+		//spew.Dump(err)
 		// caching node info
 		err = s.SetWithExpiry("node_info", string(bz), 0)
+		//spew.Dump(string(bz))
+		//spew.Dump(err)
 		if err != nil {
 			l.Errorw("cannot set node info", "error", err)
 		}
 
 	}
-	spew.Dump(endpoint(chainName))
-	spew.Dump(chainName)
+	//spew.Dump(endpoint(chainName))
+	//spew.Dump(chainName)
 	//spew.Dump(l)
-	spew.Dump(config.ApiURL)
+	//spew.Dump(config.ApiURL)
 
-	spew.Dump(grpcEndpoint)
-	spew.Dump(db)
-	spew.Dump(s)
-	spew.Dump(rpcwatcher.EventsToSubTo)
-	spew.Dump(eventMappings)
+	//spew.Dump(grpcEndpoint)
+	//spew.Dump(db)
+	//spew.Dump(s)
+	//spew.Dump(rpcwatcher.EventsToSubTo)
+	//spew.Dump(eventMappings)
 	watcher, err := rpcwatcher.NewWatcher(endpoint(chainName), chainName, l, config.ApiURL, grpcEndpoint, db, s, rpcwatcher.EventsToSubTo, eventMappings)
-	spew.Dump(err)
+	//spew.Dump(err)
 	if err != nil {
 		if isNewChain {
 			var dnsErr *net.DNSError

@@ -13,6 +13,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	gaia "github.com/cosmos/gaia/v5/app"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v8"
 )
 
@@ -76,6 +77,7 @@ func NewClient(connUrl string) (*Store, error) {
 
 	store.Config.ExpiryTime = defaultExpiry
 	store.Cdc = cdc
+	spew.Dump(store)
 	return &store, nil
 
 }
@@ -318,7 +320,12 @@ func (s *Store) Exists(key string) bool {
 }
 
 func (s *Store) SetWithExpiry(key string, value interface{}, mul int64) error {
-	return s.Client.Set(context.Background(), key, value, time.Duration(mul)*(s.Config.ExpiryTime)).Err()
+	spew.Dump(value)
+	spew.Dump(key)
+	spew.Dump(time.Duration(mul) * (s.Config.ExpiryTime))
+	err := s.Client.Set(context.Background(), key, value, time.Duration(mul)*(s.Config.ExpiryTime)).Err()
+	spew.Dump(err)
+	return err
 }
 
 func (s *Store) SetWithExpiryTime(key string, value interface{}, duration time.Duration) error {

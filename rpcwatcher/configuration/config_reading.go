@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/iamolegga/enviper"
 
 	"github.com/spf13/viper"
@@ -37,7 +36,6 @@ func ReadConfig(v Validator, configName string, defaultValues map[string]string)
 	vip.AutomaticEnv()
 	fmt.Println(vip.ConfigFileUsed())
 	if err := vip.ReadInConfig(); err != nil {
-		spew.Dump(err)
 		// We only return from here if
 		// err is not a viper.ConfigFileNotFoundError type
 		// Because if no config file found, we can still have

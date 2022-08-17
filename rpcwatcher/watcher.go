@@ -46,13 +46,13 @@ var (
 			HandleNewBlock,
 		},
 	}
-	CosmosHubMappings = map[string][]DataHandler{
+	TerraMappings = map[string][]DataHandler{
 		EventsTx: {
 			HandleMessage,
 		},
 		EventsBlock: {
 			HandleNewBlock,
-			HandleCosmosHubBlock,
+			HandleTerraBlock,
 		},
 	}
 )
@@ -306,8 +306,10 @@ func (w *Watcher) startChain(ctx context.Context) {
 					w.l.Warnw("got event subscribed that didn't have a event mapping associated", "chain", w.Name, "eventName", data.Query)
 					continue
 				}
-
+				//spew.Dump(handlers)
 				for _, handler := range handlers {
+					//spew.Dump(w)
+					//spew.Dump(data)
 					handler(w, data)
 				}
 			}
@@ -363,13 +365,13 @@ func HandleMessage(w *Watcher, data coretypes.ResultEvent) {
 	}
 
 	// Handle case where an LP is being created on the Cosmos Hub
-	if createPoolEventPresent && chainName == "cosmos-hub" {
+	if createPoolEventPresent && chainName == "localterra" {
 		w.l.Debugw("is create lp", "is it", createPoolEventPresent)
-		HandleCosmosHubLPCreated(w, data, chainName, key, height)
+		HandleTerraLPCreated(w, data, chainName, key, height)
 		return
 	}
 
-	if SwapTransactionEventPresent && w.Name == "cosmos-hub" {
+	if SwapTransactionEventPresent && w.Name == "localterra" {
 		HandleSwapTransaction(w, data, chainName, key, height)
 		return
 	}
@@ -397,8 +399,8 @@ func HandleMessage(w *Watcher, data coretypes.ResultEvent) {
 
 }
 
-func HandleCosmosHubBlock(w *Watcher, data coretypes.ResultEvent) {
-	w.l.Debugw("called HandleCosmosHubBlock")
+func HandleTerraBlock(w *Watcher, data coretypes.ResultEvent) {
+	w.l.Debugw("called HandleTerraBlock")
 	realData, ok := data.Data.(types.EventDataNewBlock)
 	if !ok {
 		panic("rpc returned data which is not of expected type")
@@ -426,6 +428,7 @@ func HandleCosmosHubBlock(w *Watcher, data coretypes.ResultEvent) {
 	res := bytes.Buffer{}
 
 	resp, err := http.Get(ru.String())
+	//spew.Dump(resp)
 	if err != nil {
 		w.l.Errorw("cannot query node for block data", "error", err, "height", newHeight)
 		return
@@ -530,6 +533,7 @@ func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 	w.l.Debugw("new block", "chain_name", w.Name)
 
 	realData, ok := data.Data.(types.EventDataNewBlock)
+	//spew.Dump(realData)
 	if !ok {
 		panic("rpc returned block data which is not of expected type")
 	}
@@ -546,7 +550,7 @@ func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 	}
 }
 
-func HandleCosmosHubLPCreated(w *Watcher, data coretypes.ResultEvent, chainName, key string, height int64) {
+func HandleTerraLPCreated(w *Watcher, data coretypes.ResultEvent, chainName, key string, height int64) {
 	defer func() {
 		if err := w.store.SetComplete(key, height); err != nil {
 			w.l.Errorw("cannot set complete", "chain name", chainName, "error", err)
@@ -555,7 +559,7 @@ func HandleCosmosHubLPCreated(w *Watcher, data coretypes.ResultEvent, chainName,
 
 	chain, err := w.d.Chain(chainName)
 	if err != nil {
-		w.l.Errorw("can't find chain cosmos-hub", "error", err)
+		w.l.Errorw("can't find chain localterra", "error", err)
 		return
 	}
 

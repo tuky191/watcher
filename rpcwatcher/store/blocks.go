@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v8"
 )
 
@@ -70,6 +69,6 @@ func (b *Blocks) LastBlockTime(height int64) (time.Time, error) {
 }
 
 func (b *Blocks) Add(data []byte, height int64) error {
-	spew.Dump(string(data))
+	//spew.Dump(string(data))
 	return b.storeInstance.Client.Set(context.Background(), blockKey(height), string(data), defaultTimeout).Err()
 }
