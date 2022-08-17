@@ -202,16 +202,7 @@ func startNewWatcher(chainName string, chainsMap map[string]cnsmodels.Chain, con
 		}
 
 	}
-	//spew.Dump(endpoint(chainName))
-	//spew.Dump(chainName)
-	//spew.Dump(l)
-	//spew.Dump(config.ApiURL)
 
-	//spew.Dump(grpcEndpoint)
-	//spew.Dump(db)
-	//spew.Dump(s)
-	//spew.Dump(rpcwatcher.EventsToSubTo)
-	//spew.Dump(eventMappings)
 	watcher, err := rpcwatcher.NewWatcher(endpoint(chainName), chainName, l, config.ApiURL, grpcEndpoint, db, s, p, rpcwatcher.EventsToSubTo, eventMappings)
 	//spew.Dump(err)
 	if err != nil {

@@ -1,27 +1,18 @@
 package rpcwatcher
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/url"
 	"rpc_watcher/rpcwatcher/database"
 	producer "rpc_watcher/rpcwatcher/pulsar"
 	"rpc_watcher/rpcwatcher/store"
-	"strconv"
 	"time"
 
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/davecgh/go-spew/spew"
-	liquiditytypes "github.com/gravity-devs/liquidity/x/liquidity/types"
 	tmjson "github.com/tendermint/tendermint/libs/json"
 	coretypes "github.com/tendermint/tendermint/rpc/core/types"
 	"github.com/tendermint/tendermint/rpc/jsonrpc/client"
 	"github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 )
 
 const ackSuccess = "AQ==" // Packet ack value is true when ibc is success and contains error message in all other cases
@@ -54,7 +45,7 @@ var (
 		},
 		EventsBlock: {
 			HandleNewBlock,
-			HandleTerraBlock,
+			//		HandleTerraBlock,
 		},
 	}
 )
@@ -66,25 +57,6 @@ type WsResponse struct {
 }
 
 type Events map[string][]string
-
-type VerifyTraceResponse struct {
-	VerifyTrace struct {
-		IbcDenom  string `json:"ibc_denom"`
-		BaseDenom string `json:"base_denom"`
-		Verified  bool   `json:"verified"`
-		Path      string `json:"path"`
-		Trace     []struct {
-			Channel          string `json:"channel"`
-			Port             string `json:"port"`
-			ChainName        string `json:"chain_name"`
-			CounterpartyName string `json:"counterparty_name"`
-		} `json:"trace"`
-	} `json:"verify_trace"`
-}
-
-type Ack struct {
-	Result string `json:"result"`
-}
 
 type Watcher struct {
 	Name         string
@@ -351,135 +323,92 @@ func HandleMessage(w *Watcher, data coretypes.ResultEvent) {
 
 }
 
-func HandleTerraBlock(w *Watcher, data coretypes.ResultEvent) {
-	w.l.Debugw("called HandleTerraBlock")
-	realData, ok := data.Data.(types.EventDataNewBlock)
-	if !ok {
-		panic("rpc returned data which is not of expected type")
-	}
-
-	time.Sleep(defaultTimeGap) // to handle the time gap between block production and event broadcast
-	newHeight := realData.Block.Header.Height
-
-	u := w.endpoint
-
-	ru, err := url.Parse(u)
-	if err != nil {
-		w.l.Errorw("cannot parse url", "url_string", u, "error", err)
-		return
-	}
-
-	vals := url.Values{}
-	vals.Set("height", strconv.FormatInt(newHeight, 10))
-
-	w.l.Debugw("asking for block", "height", newHeight)
-
-	ru.Path = "block_results"
-	ru.RawQuery = vals.Encode()
-
-	res := bytes.Buffer{}
-	spew.Dump(ru.String())
-
-	resp, err := http.Get(ru.String())
-	//spew.Dump(resp)
-	if err != nil {
-		w.l.Errorw("cannot query node for block data", "error", err, "height", newHeight)
-		return
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		w.l.Errorw("endpoint returned non-200 code", "code", resp.StatusCode, "height", newHeight)
-		return
-	}
-
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	read, err := res.ReadFrom(resp.Body)
-	if err != nil {
-		w.l.Errorw("cannot read block data resp body into buffer", "height", newHeight, "error", err)
-		return
-	}
-
-	if read == 0 {
-		w.l.Errorw("read zero bytes from response body", "height", newHeight)
-	}
-
-	bs := store.NewBlocks(w.store)
-	err = bs.Add(res.Bytes(), newHeight)
-	if err != nil {
-		w.l.Errorw("cannot set block to cache", "error", err, "height", newHeight)
-		return
-	}
-
-	// creating a grpc ClientConn to perform RPCs
-	grpcConn, err := grpc.Dial(
-		w.grpcEndpoint,
-		grpc.WithInsecure(),
-	)
-	if err != nil {
-		w.l.Errorw("cannot create gRPC client", "error", err, "chain_name", w.Name, "address", w.grpcEndpoint)
-		return
-	}
-
-	defer func() {
-		if err := grpcConn.Close(); err != nil {
-			w.l.Errorw("cannot close gRPC client", "error", err, "chain_name", w.Name)
+/*
+	func HandleTerraBlock(w *Watcher, data coretypes.ResultEvent) {
+		w.l.Debugw("called HandleTerraBlock")
+		realData, ok := data.Data.(types.EventDataNewBlock)
+		if !ok {
+			panic("rpc returned data which is not of expected type")
 		}
-	}()
 
-	liquidityQuery := liquiditytypes.NewQueryClient(grpcConn)
-	poolsRes, err := liquidityQuery.LiquidityPools(context.Background(), &liquiditytypes.QueryLiquidityPoolsRequest{})
-	if err != nil {
-		w.l.Errorw("cannot get liquidity pools in blocks", "error", err, "height", newHeight)
-	}
+		time.Sleep(defaultTimeGap) // to handle the time gap between block production and event broadcast
+		newHeight := realData.Block.Header.Height
 
-	bz, err := w.store.Cdc.MarshalJSON(poolsRes)
-	if err != nil {
-		w.l.Errorw("cannot marshal liquidity pools", "error", err, "height", newHeight)
-	}
+		u := w.endpoint
 
-	// caching pools info
-	err = w.store.SetWithExpiry("pools", string(bz), 0)
-	if err != nil {
-		w.l.Errorw("cannot set liquidity pools", "error", err, "height", newHeight)
-	}
+		ru, err := url.Parse(u)
+		if err != nil {
+			w.l.Errorw("cannot parse url", "url_string", u, "error", err)
+			return
+		}
 
-	paramsRes, err := liquidityQuery.Params(context.Background(), &liquiditytypes.QueryParamsRequest{})
-	if err != nil {
-		w.l.Errorw("cannot get liquidity params", "error", err, "height", newHeight)
-	}
+		vals := url.Values{}
+		vals.Set("height", strconv.FormatInt(newHeight, 10))
 
-	bz, err = w.store.Cdc.MarshalJSON(paramsRes)
-	if err != nil {
-		w.l.Errorw("cannot marshal liquidity params", "error", err, "height", newHeight)
-	}
+		w.l.Debugw("asking for block", "height", newHeight)
 
-	// caching liquidity params
-	err = w.store.SetWithExpiry("params", string(bz), 0)
-	if err != nil {
-		w.l.Errorw("cannot set liquidity params", "error", err, "height", newHeight)
-	}
+		ru.Path = "block_results"
+		ru.RawQuery = vals.Encode()
 
-	supplyQuery := banktypes.NewQueryClient(grpcConn)
-	supplyRes, err := supplyQuery.TotalSupply(context.Background(), &banktypes.QueryTotalSupplyRequest{})
-	if err != nil {
-		w.l.Errorw("cannot get total supply", "error", err, "height", newHeight)
-	}
+		res := bytes.Buffer{}
+		spew.Dump(ru.String())
 
-	bz, err = w.store.Cdc.MarshalJSON(supplyRes)
-	if err != nil {
-		w.l.Errorw("cannot marshal total supply", "error", err, "height", newHeight)
-	}
+		resp, err := http.Get(ru.String())
+		//spew.Dump(resp)
+		if err != nil {
+			w.l.Errorw("cannot query node for block data", "error", err, "height", newHeight)
+			return
+		}
 
-	// caching total supply
-	err = w.store.SetWithExpiry("supply", string(bz), 0)
-	if err != nil {
-		w.l.Errorw("cannot set total supply", "error", err, "height", newHeight)
-	}
+		if resp.StatusCode != http.StatusOK {
+			w.l.Errorw("endpoint returned non-200 code", "code", resp.StatusCode, "height", newHeight)
+			return
+		}
+
+		defer func() {
+			_ = resp.Body.Close()
+		}()
+
+		read, err := res.ReadFrom(resp.Body)
+		if err != nil {
+			w.l.Errorw("cannot read block data resp body into buffer", "height", newHeight, "error", err)
+			return
+		}
+
+		if read == 0 {
+			w.l.Errorw("read zero bytes from response body", "height", newHeight)
+		}
+
+		// creating a grpc ClientConn to perform RPCs
+		grpcConn, err := grpc.Dial(
+			w.grpcEndpoint,
+			grpc.WithInsecure(),
+		)
+		if err != nil {
+			w.l.Errorw("cannot create gRPC client", "error", err, "chain_name", w.Name, "address", w.grpcEndpoint)
+			return
+		}
+
+		defer func() {
+			if err := grpcConn.Close(); err != nil {
+				w.l.Errorw("cannot close gRPC client", "error", err, "chain_name", w.Name)
+			}
+		}()
+		/*
+			liquidityQuery := liquiditytypes.NewQueryClient(grpcConn)
+			poolsRes, err := liquidityQuery.LiquidityPools(context.Background(), &liquiditytypes.QueryLiquidityPoolsRequest{})
+			if err != nil {
+				w.l.Errorw("cannot get liquidity pools in blocks", "error", err, "height", newHeight)
+			}
+
+			bz, err := w.store.Cdc.MarshalJSON(poolsRes)
+			if err != nil {
+				w.l.Errorw("cannot marshal liquidity pools", "error", err, "height", newHeight)
+			}
+			w.l.Infof(string(bz))
+
 }
-
+*/
 func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 	w.watchdog.Ping()
 	w.l.Debugw("performed watchdog ping", "chain_name", w.Name)
@@ -496,232 +425,4 @@ func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 	}
 	producer.SendMessage(w.producer, w.l, realData)
 
-}
-
-func HandleTerraLPCreated(w *Watcher, data coretypes.ResultEvent, chainName, key string, height int64) {
-	defer func() {
-		if err := w.store.SetComplete(key, height); err != nil {
-			w.l.Errorw("cannot set complete", "chain name", chainName, "error", err)
-		}
-	}()
-
-	chain, err := w.d.Chain(chainName)
-	if err != nil {
-		w.l.Errorw("can't find chain localterra", "error", err)
-		return
-	}
-
-	poolCoinDenom, ok := data.Events["create_pool.pool_coin_denom"]
-	if !ok {
-		w.l.Errorw("no field create_pool.pool_coin_denom in Events", "error", err)
-		return
-	}
-
-	dd, err := formatDenom(w, data)
-	if err != nil {
-		w.l.Errorw("failed to format denom", "error", err)
-		return
-	}
-
-	found := false
-	for _, token := range chain.Denoms {
-		if token.Name == poolCoinDenom[0] {
-			token = dd
-			found = true
-		}
-	}
-
-	if !found {
-		chain.Denoms = append(chain.Denoms, dd)
-	}
-
-	err = w.d.UpdateDenoms(chain)
-	if err != nil {
-		w.l.Errorw("failed to update chain", "error", err)
-		return
-	}
-}
-
-func HandleSwapTransaction(w *Watcher, data coretypes.ResultEvent, chainName, key string, height int64) {
-	poolId, ok := data.Events["swap_within_batch.pool_id"]
-	if !ok {
-		w.l.Errorw("pool_id not found")
-		return
-	}
-
-	offerCoinFee, ok := data.Events["swap_within_batch.offer_coin_fee_amount"]
-	if !ok {
-		w.l.Errorw("offer_coin_fee_amount not found")
-		return
-	}
-
-	offerCoinDenom, ok := data.Events["swap_within_batch.offer_coin_denom"]
-	if !ok {
-		w.l.Errorw("offer_coin_fee_denom not found")
-	}
-
-	err := w.store.SetPoolSwapFees(poolId[0], offerCoinFee[0], offerCoinDenom[0])
-	if err != nil {
-		w.l.Errorw("unable to store swap fees", "error", err)
-	}
-
-	if err := w.store.SetComplete(key, height); err != nil {
-		w.l.Errorw("cannot set complete", "chain name", chainName, "error", err)
-	}
-}
-
-func HandleIBCSenderEvent(w *Watcher, data coretypes.ResultEvent, chainName, txHash, key string, height int64) {
-	sendPacketSourcePort, ok := data.Events["send_packet.packet_src_port"]
-	if !ok {
-		w.l.Errorf("send_packet.packet_src_port not found")
-		return
-	}
-
-	if sendPacketSourcePort[0] != "transfer" {
-		w.l.Errorf("port is not 'transfer', ignoring")
-		return
-	}
-
-	sendPacketSourceChannel, ok := data.Events["send_packet.packet_src_channel"]
-	if !ok {
-		w.l.Errorf("send_packet.packet_src_channel not found")
-		return
-	}
-
-	sendPacketSequence, ok := data.Events["send_packet.packet_sequence"]
-	if !ok {
-		w.l.Errorf("send_packet.packet_sequence not found")
-		return
-	}
-
-	c, err := w.d.GetCounterParty(chainName, sendPacketSourceChannel[0])
-	if err != nil {
-		w.l.Errorw("unable to fetch counterparty chain from db", "error", err)
-		return
-	}
-
-	if err := w.store.SetInTransit(key, c[0].Counterparty, sendPacketSourceChannel[0], sendPacketSequence[0],
-		txHash, chainName, height); err != nil {
-		w.l.Errorw("unable to set status as in transit for key", "key", key, "error", err)
-	}
-}
-
-func HandleIBCReceivePacket(w *Watcher, data coretypes.ResultEvent, chainName, txHash string, height int64) {
-	w.l.Debugw("called HandleIBCReceivePacket")
-	recvPacketSourcePort, ok := data.Events["recv_packet.packet_src_port"]
-	if !ok {
-		w.l.Errorf("recv_packet.packet_src_port not found")
-		return
-	}
-
-	if recvPacketSourcePort[0] != "transfer" {
-		w.l.Errorf("port is not 'transfer', ignoring")
-		return
-	}
-
-	recvPacketSourceChannel, ok := data.Events["recv_packet.packet_src_channel"]
-	if !ok {
-		w.l.Errorf("recv_packet.packet_src_channel not found")
-		return
-	}
-
-	recvPacketSequence, ok := data.Events["recv_packet.packet_sequence"]
-	if !ok {
-		w.l.Errorf("recv_packet.packet_sequence not found")
-		return
-	}
-
-	packetAck, ok := data.Events["write_acknowledgement.packet_ack"]
-	if !ok {
-		w.l.Errorf("packet ack not found")
-		return
-	}
-
-	key := store.GetIBCKey(chainName, recvPacketSourceChannel[0], recvPacketSequence[0])
-	if !w.store.Exists(key) {
-		w.l.Debugw("bypassing key, event not sourced from us", "chain_name", w.Name, "key", key, "event", "ibc_receive")
-		return
-	}
-
-	var ack Ack
-	if err := json.Unmarshal([]byte(packetAck[0]), &ack); err != nil {
-		w.l.Errorw("unable to unmarshal packetAck", "err", err)
-		return
-	}
-
-	if ack.Result != ackSuccess {
-		if err := w.store.SetIbcFailed(key, txHash, chainName, height); err != nil {
-			w.l.Errorw("unable to set status as failed for key", "key", key, "error", err)
-		}
-		return
-	}
-
-	if err := w.store.SetIbcReceived(key, txHash, chainName, height); err != nil {
-		w.l.Errorw("unable to set status as ibc received for key", "key", key, "error", err)
-	}
-}
-
-func HandleIBCTimeoutPacket(w *Watcher, data coretypes.ResultEvent, chainName, txHash string, height int64) {
-	timeoutPacketSourceChannel, ok := data.Events["timeout_packet.packet_src_channel"]
-	if !ok {
-		w.l.Errorf("timeout_packet.packet_src_channel not found")
-		return
-	}
-
-	timeoutPacketSequence, ok := data.Events["timeout_packet.packet_sequence"]
-	if !ok {
-		w.l.Errorf("timeout_packet.packet_sequence not found")
-		return
-	}
-
-	c, err := w.d.GetCounterParty(chainName, timeoutPacketSourceChannel[0])
-	if err != nil {
-		w.l.Errorw("unable to fetch counterparty chain from db", "error", err)
-		return
-	}
-
-	key := store.GetIBCKey(c[0].Counterparty, timeoutPacketSourceChannel[0], timeoutPacketSequence[0])
-	if !w.store.Exists(key) {
-		w.l.Debugw("bypassing key, event not sourced from us", "chain_name", w.Name, "key", key, "event", "timeout")
-		return
-	}
-
-	if err := w.store.SetIbcTimeoutUnlock(key, txHash, chainName, height); err != nil {
-		w.l.Errorw("unable to set status as ibc timeout unlock for key", "key", key, "error", err)
-	}
-}
-
-func HandleIBCAckPacket(w *Watcher, data coretypes.ResultEvent, chainName, txHash string, height int64) {
-	w.l.Debugw("called HandleIBCAckPacket")
-	ackPacketSourceChannel, ok := data.Events["acknowledge_packet.packet_src_channel"]
-	if !ok {
-		w.l.Errorf("acknowledge_packet.packet_src_channel not found")
-		return
-	}
-
-	ackPacketSequence, ok := data.Events["acknowledge_packet.packet_sequence"]
-	if !ok {
-		w.l.Errorf("acknowledge_packet.packet_sequence not found")
-		return
-	}
-
-	c, err := w.d.GetCounterParty(chainName, ackPacketSourceChannel[0])
-	if err != nil {
-		w.l.Errorw("unable to fetch counterparty chain from db", "error", err)
-		return
-	}
-
-	key := store.GetIBCKey(c[0].Counterparty, ackPacketSourceChannel[0], ackPacketSequence[0])
-	_, ok = data.Events["fungible_token_packet.error"]
-	if ok {
-		if !w.store.Exists(key) {
-			w.l.Debugw("bypassing key, event not sourced from us", "chain_name", w.Name, "key", key, "event", "ibc_ack")
-			return
-		}
-
-		if err := w.store.SetIbcAckUnlock(key, txHash, chainName, height); err != nil {
-			w.l.Errorw("unable to set status as ibc ack unlock for key", "key", key, "error", err)
-		}
-		return
-	}
 }
