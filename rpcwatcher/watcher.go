@@ -3,20 +3,16 @@ package rpcwatcher
 import (
 	"context"
 	"fmt"
-	"rpc_watcher/rpcwatcher/database"
 	producer "rpc_watcher/rpcwatcher/pulsar"
-	"rpc_watcher/rpcwatcher/store"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	tmjson "github.com/tendermint/tendermint/libs/json"
 	coretypes "github.com/tendermint/tendermint/rpc/core/types"
 	"github.com/tendermint/tendermint/rpc/jsonrpc/client"
 	"github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
 )
-
-const ackSuccess = "AQ==" // Packet ack value is true when ibc is success and contains error message in all other cases
-const nonZeroCodeErrFmt = "non-zero code on chain %s: %s"
 
 const (
 	EventsTx                = "tm.event='Tx'"
@@ -66,9 +62,7 @@ type Watcher struct {
 	eventTypeMappings map[string][]DataHandler
 	apiUrl            string
 	client            *client.WSClient
-	d                 *database.Instance
 	l                 *zap.SugaredLogger
-	store             *store.Store
 	producer          *producer.Instance
 	runContext        context.Context
 	endpoint          string
@@ -83,8 +77,6 @@ func NewWatcher(
 	endpoint, chainName string,
 	logger *zap.SugaredLogger,
 	apiUrl, grpcEndpoint string,
-	db *database.Instance,
-	s *store.Store,
 	p *producer.Instance,
 	subscriptions []string,
 	eventTypeMappings map[string][]DataHandler,
@@ -123,10 +115,8 @@ func NewWatcher(
 
 	w := &Watcher{
 		apiUrl:            apiUrl,
-		d:                 db,
 		client:            ws,
 		l:                 logger,
-		store:             s,
 		producer:          p,
 		Name:              chainName,
 		endpoint:          endpoint,
@@ -158,6 +148,8 @@ func NewWatcher(
 
 func Start(watcher *Watcher, ctx context.Context) {
 	watcher.runContext = ctx
+	//spew.Dump(ctx)
+	//spew.Dump(watcher)
 	go watcher.startChain(ctx)
 }
 
@@ -217,11 +209,6 @@ func (w *Watcher) checkError() {
 			select { //nolint Intentional channel construct
 			case err := <-w.ErrorChannel:
 				if err != nil {
-					storeErr := w.store.SetWithExpiry(w.Name, "false", 0)
-					if storeErr != nil {
-						w.l.Errorw("unable to set chain name to false", "store error", storeErr,
-							"error", err)
-					}
 					w.l.Errorw("detected error", "chain_name", w.Name, "error", err)
 					resubscribe(w)
 					return
@@ -234,16 +221,12 @@ func (w *Watcher) checkError() {
 func resubscribe(w *Watcher) {
 	count := 0
 	for {
-		err := w.store.SetWithExpiry(w.Name, "resubscribing", 0)
-		if err != nil {
-			w.l.Errorw("unable to set chain name with status resubscribing", "error", err)
-		}
 
 		time.Sleep(defaultResubscribeSleep)
 		count++
 		w.l.Debugw("this is count", "count", count)
 
-		ww, err := NewWatcher(w.endpoint, w.Name, w.l, w.apiUrl, w.grpcEndpoint, w.d, w.store, w.producer, w.subs, w.eventTypeMappings)
+		ww, err := NewWatcher(w.endpoint, w.Name, w.l, w.apiUrl, w.grpcEndpoint, w.producer, w.subs, w.eventTypeMappings)
 		if err != nil {
 			w.l.Errorw("cannot resubscribe to chain", "name", w.Name, "endpoint", w.endpoint, "error", err)
 			continue
@@ -253,10 +236,6 @@ func resubscribe(w *Watcher) {
 		w = ww
 
 		Start(w, w.runContext)
-		err = w.store.SetWithExpiry(w.Name, "true", 0)
-		if err != nil {
-			w.l.Errorw("unable to set chain name as true", "error", err)
-		}
 
 		w.l.Infow("successfully reconnected", "name", w.Name, "endpoint", w.endpoint)
 		return
@@ -264,6 +243,7 @@ func resubscribe(w *Watcher) {
 }
 
 func (w *Watcher) startChain(ctx context.Context) {
+	spew.Dump("dd")
 	for {
 		select {
 		case <-ctx.Done():
@@ -305,19 +285,11 @@ func HandleMessage(w *Watcher, data coretypes.ResultEvent) {
 	txHash := txHashSlice[0]
 	chainName := w.Name
 	eventTx := data.Data.(types.EventDataTx)
-	height := eventTx.Height
-	key := store.GetKey(chainName, txHash)
 
 	if eventTx.Result.Code != 0 {
-		logStr := fmt.Sprintf(nonZeroCodeErrFmt, chainName, eventTx.Result.Log)
+		//logStr := fmt.Sprintf(nonZeroCodeErrFmt, chainName, eventTx.Result.Log)
 
 		w.l.Debugw("transaction error", "chainName", chainName, "txHash", txHash, "log", eventTx.Result.Log)
-
-		if err := w.store.SetFailedWithErr(key, logStr, height); err != nil {
-			w.l.Errorw("cannot set failed with err", "chain name", chainName, "error", err,
-				"txHash", txHash, "code", eventTx.Result.Code)
-		}
-
 		return
 	}
 

@@ -2,29 +2,19 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net"
 	"net/http"
-	"strings"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
-	"github.com/r3labs/diff"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	"rpc_watcher/rpcwatcher"
-	"rpc_watcher/rpcwatcher/database"
-	"rpc_watcher/rpcwatcher/store"
 
 	"rpc_watcher/rpcwatcher/logging"
 
 	_ "net/http/pprof"
 	producer "rpc_watcher/rpcwatcher/pulsar"
-
-	"github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
-	cnsmodels "github.com/emerishq/demeris-backend-models/cns"
 )
 
 var Version = "0.01"
@@ -59,97 +49,17 @@ func main() {
 		}()
 	}
 
-	db, err := database.New(c.DatabaseConnectionURL)
-
-	if err != nil {
-		panic(err)
-	}
-
-	s, err := store.NewClient(c.RedisURL)
-	if err != nil {
-		l.Panicw("unable to start redis client", "error", err)
-	}
-	var chains []cnsmodels.Chain
-
+	cn := "localterra"
+	watcher, cancel := startNewWatcher(cn, c, l)
 	watchers := map[string]watcherInstance{}
-
-	chains, err = db.Chains()
-
-	if err != nil {
-		spew.Dump(err)
-		panic(err)
-	}
-
-	chainsMap := mapChains(chains)
-
-	for cn := range chainsMap {
-		updatedChainsMap, watcher, cancel, shouldContinue := startNewWatcher(cn, chainsMap, c, db, s, l, false)
-		chainsMap = updatedChainsMap
-		if shouldContinue {
-			continue
-		}
-
-		watchers[cn] = watcherInstance{
-			watcher: watcher,
-			cancel:  cancel,
-		}
-	}
-
-	for range time.Tick(1 * time.Second) {
-
-		ch, err := db.Chains()
-		if err != nil {
-			l.Errorw("cannot get chains from db", "error", err)
-			continue
-		}
-
-		newChainsMap := mapChains(ch)
-
-		chainsDiff, err := diff.Diff(chainsMap, newChainsMap)
-		if err != nil {
-			l.Errorw("cannot diff maps", "error", err)
-			continue
-		}
-
-		if chainsDiff == nil {
-			continue
-		}
-
-		l.Debugw("diff", "diff", chainsDiff)
-		for _, d := range chainsDiff {
-			switch d.Type {
-			case diff.DELETE:
-				name := d.Path[0]
-				wi, ok := watchers[name]
-				if !ok {
-					// we probably deleted this already somehow
-					continue
-				}
-				wi.cancel()
-
-				delete(watchers, name)
-				delete(chainsMap, name)
-			case diff.CREATE:
-				name := d.Path[0]
-
-				_, watcher, cancel, shouldContinue := startNewWatcher(name, chainsMap, c, db, s, l, true)
-				if shouldContinue {
-					continue
-				}
-
-				watchers[name] = watcherInstance{
-					watcher: watcher,
-					cancel:  cancel,
-				}
-
-				chainsMap[name] = newChainsMap[name]
-			}
-		}
+	watchers[cn] = watcherInstance{
+		watcher: watcher,
+		cancel:  cancel,
 	}
 }
 
-func startNewWatcher(chainName string, chainsMap map[string]cnsmodels.Chain, config *rpcwatcher.Config, db *database.Instance, s *store.Store,
-	l *zap.SugaredLogger, isNewChain bool) (map[string]cnsmodels.Chain, *rpcwatcher.Watcher, context.CancelFunc, bool) {
+func startNewWatcher(chainName string, config *rpcwatcher.Config,
+	l *zap.SugaredLogger) (*rpcwatcher.Watcher, context.CancelFunc) {
 	eventMappings := rpcwatcher.StandardMappings
 	client_options := producer.ClientOptions{
 		URL:               "pulsar://localhost:6650",
@@ -181,65 +91,24 @@ func startNewWatcher(chainName string, chainsMap map[string]cnsmodels.Chain, con
 				l.Errorw("cannot close gRPC client", "error", err, "chain_name", chainName)
 			}
 		}()
-
-		nodeInfoQuery := tmservice.NewServiceClient(grpcConn)
-		nodeInfoRes, err := nodeInfoQuery.GetNodeInfo(context.Background(), &tmservice.GetNodeInfoRequest{})
-		if err != nil {
-			l.Errorw("cannot get node info", "error", err)
-		}
-		//spew.Dump(nodeInfoRes)
-		bz, err := s.Cdc.MarshalJSON(nodeInfoRes)
-		if err != nil {
-			l.Errorw("cannot marshal node info", "error", err)
-		}
-		//spew.Dump(err)
-		// caching node info
-		err = s.SetWithExpiry("node_info", string(bz), 0)
-		//spew.Dump(string(bz))
-		//spew.Dump(err)
-		if err != nil {
-			l.Errorw("cannot set node info", "error", err)
-		}
+		/*
+			nodeInfoQuery := tmservice.NewServiceClient(grpcConn)
+			nodeInfoRes, err := nodeInfoQuery.GetNodeInfo(context.Background(), &tmservice.GetNodeInfoRequest{})
+			if err != nil {
+				l.Errorw("cannot get node info", "error", err)
+			}*/
 
 	}
 
-	watcher, err := rpcwatcher.NewWatcher(endpoint(chainName), chainName, l, config.ApiURL, grpcEndpoint, db, s, p, rpcwatcher.EventsToSubTo, eventMappings)
-	//spew.Dump(err)
+	watcher, err := rpcwatcher.NewWatcher(endpoint(chainName), chainName, l, config.ApiURL, grpcEndpoint, p, rpcwatcher.EventsToSubTo, eventMappings)
 	if err != nil {
-		if isNewChain {
-			var dnsErr *net.DNSError
-			if errors.As(err, &dnsErr) || strings.Contains(err.Error(), "connection refused") {
-				l.Infow("chain not yet available", "name", chainName)
-				return chainsMap, nil, nil, true
-			}
-		} else {
-			delete(chainsMap, chainName)
-		}
-
 		l.Errorw("cannot create chain", "error", err)
-		return chainsMap, nil, nil, true
+		return nil, nil
 	}
-
-	err = s.SetWithExpiry(chainName, "true", 0)
-	if err != nil {
-		l.Errorw("unable to set chain name as true", "error", err)
-	}
-
-	l.Debugw("connected", "chainName", chainName)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	rpcwatcher.Start(watcher, ctx)
-
-	return chainsMap, watcher, cancel, false
-}
-
-func mapChains(c []cnsmodels.Chain) map[string]cnsmodels.Chain {
-	ret := map[string]cnsmodels.Chain{}
-	for _, cc := range c {
-		ret[cc.ChainName] = cc
-	}
-
-	return ret
+	return watcher, cancel
 }
 
 func endpoint(chainName string) string {
