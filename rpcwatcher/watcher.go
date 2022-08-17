@@ -14,6 +14,7 @@ import (
 	"time"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/davecgh/go-spew/spew"
 	liquiditytypes "github.com/gravity-devs/liquidity/x/liquidity/types"
 	tmjson "github.com/tendermint/tendermint/libs/json"
 	coretypes "github.com/tendermint/tendermint/rpc/core/types"
@@ -323,13 +324,7 @@ func (w *Watcher) startChain(ctx context.Context) {
 }
 
 func HandleMessage(w *Watcher, data coretypes.ResultEvent) {
-	txHashSlice, exists := data.Events["tx.hash"]
-	_, createPoolEventPresent := data.Events["create_pool.pool_name"]
-	_, IBCSenderEventPresent := data.Events["ibc_transfer.sender"]
-	_, IBCAckEventPresent := data.Events["fungible_token_packet.acknowledgement"]
-	_, IBCReceivePacketEventPresent := data.Events["recv_packet.packet_sequence"]
-	_, IBCTimeoutEventPresent := data.Events["timeout.refund_receiver"]
-	_, SwapTransactionEventPresent := data.Events["swap_within_batch.pool_id"]
+	txHashSlice, _ := data.Events["tx.hash"]
 
 	if len(txHashSlice) == 0 {
 		return
@@ -340,12 +335,6 @@ func HandleMessage(w *Watcher, data coretypes.ResultEvent) {
 	eventTx := data.Data.(types.EventDataTx)
 	height := eventTx.Height
 	key := store.GetKey(chainName, txHash)
-
-	w.l.Debugw("got message to handle", "chain name", chainName, "key", key, "is create lp", createPoolEventPresent, "is ibc", IBCSenderEventPresent, "is ibc recv", IBCReceivePacketEventPresent,
-		"is ibc ack", IBCAckEventPresent, "is ibc timeout", IBCTimeoutEventPresent)
-
-	w.l.Debugw("is simple ibc transfer"+
-		"", "is it", exists && !createPoolEventPresent && !IBCSenderEventPresent && !IBCReceivePacketEventPresent && w.store.Exists(key))
 
 	if eventTx.Result.Code != 0 {
 		logStr := fmt.Sprintf(nonZeroCodeErrFmt, chainName, eventTx.Result.Log)
@@ -358,47 +347,6 @@ func HandleMessage(w *Watcher, data coretypes.ResultEvent) {
 		}
 
 		return
-	}
-	// Handle case where a simple non-IBC transfer is being used.
-	if exists && !createPoolEventPresent && !IBCSenderEventPresent && !IBCReceivePacketEventPresent &&
-		!IBCAckEventPresent && !IBCTimeoutEventPresent && !SwapTransactionEventPresent && w.store.Exists(key) {
-		if err := w.store.SetComplete(key, height); err != nil {
-			w.l.Errorw("cannot set complete", "chain name", chainName, "error", err)
-		}
-		return
-	}
-
-	// Handle case where an LP is being created on the Cosmos Hub
-	if createPoolEventPresent && chainName == "localterra" {
-		w.l.Debugw("is create lp", "is it", createPoolEventPresent)
-		HandleTerraLPCreated(w, data, chainName, key, height)
-		return
-	}
-
-	if SwapTransactionEventPresent && w.Name == "localterra" {
-		HandleSwapTransaction(w, data, chainName, key, height)
-		return
-	}
-
-	// Handle case where an IBC transfer is sent from the origin chain.
-	if IBCSenderEventPresent {
-		HandleIBCSenderEvent(w, data, chainName, txHash, key, height)
-		return
-	}
-
-	// Handle case where IBC transfer is received by the receiving chain.
-	if IBCReceivePacketEventPresent {
-		HandleIBCReceivePacket(w, data, chainName, txHash, height)
-		return
-	}
-
-	if IBCTimeoutEventPresent {
-		HandleIBCTimeoutPacket(w, data, chainName, txHash, height)
-		return
-	}
-
-	if IBCAckEventPresent {
-		HandleIBCAckPacket(w, data, chainName, txHash, height)
 	}
 
 }
@@ -430,6 +378,7 @@ func HandleTerraBlock(w *Watcher, data coretypes.ResultEvent) {
 	ru.RawQuery = vals.Encode()
 
 	res := bytes.Buffer{}
+	spew.Dump(ru.String())
 
 	resp, err := http.Get(ru.String())
 	//spew.Dump(resp)
@@ -545,14 +494,8 @@ func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 	if realData.Block == nil {
 		w.l.Warnw("weird block received on rpc, it was empty while it shouldn't", "chain_name", w.Name)
 	}
-	producer.SendMessage(w.producer)
+	producer.SendMessage(w.producer, w.l, realData)
 
-	b := store.NewBlocks(w.store)
-
-	if err := b.SetLastBlockTime(realData.Block.Time, realData.Block.Height); err != nil {
-		w.l.Errorw("cannot write last block time to store", "chain_name", w.Name, "error", err)
-		return
-	}
 }
 
 func HandleTerraLPCreated(w *Watcher, data coretypes.ResultEvent, chainName, key string, height int64) {

@@ -6,13 +6,17 @@ import (
 	"log"
 	"time"
 
+	"encoding/json"
+
 	"github.com/apache/pulsar-client-go/pulsar"
-	"github.com/davecgh/go-spew/spew"
+	"github.com/tendermint/tendermint/types"
+	"go.uber.org/zap"
 )
 
 type Instance struct {
-	p   pulsar.Producer
-	ctx context.Context
+	client pulsar.Client
+	p      pulsar.Producer
+	ctx    context.Context
 }
 
 type ClientOptions struct {
@@ -46,55 +50,45 @@ func New(co *ClientOptions, p *ProducerOptions) (*Instance, error) {
 		return nil, err
 	}
 
-	//defer client.Close()
-	producer, err := client.CreateProducer(pulsar.ProducerOptions{
-		Topic: p.Topic,
-	})
-
-	//producer, err := NewWithClient(client, p)
+	producer, err := NewWithClient(client, p)
 	if err != nil {
 		log.Fatalf("Could not start the producer: %v", err)
 		return nil, err
 	}
 	ii := &Instance{
-		p: producer,
+		client: client,
+		p:      producer,
 	}
-	//defer producer.Close()
 
-	ds, err := ii.p.Send(ii.ctx, &pulsar.ProducerMessage{
-		Payload: []byte("hello"),
-		//	SequenceID: &realData.Block.Height,
-	})
-	spew.Dump(ds)
 	if err != nil {
 		fmt.Println("Failed to publish message", err)
 	}
 	return ii, nil
 }
 
-/*
-	func NewWithClient(c pulsar.Client, p *ProducerOptions) (*Instance, error) {
-		producer, err := c.CreateProducer(pulsar.ProducerOptions{
-			Topic: p.Topic,
-		})
-		if err != nil {
-			log.Fatalf("Could not start the producer: %v", err)
-			return nil, err
-		}
-		ii := &Instance{
-			p: producer,
-		}
-		defer producer.Close()
-		return ii, err
+func NewWithClient(c pulsar.Client, p *ProducerOptions) (pulsar.Producer, error) {
+	producer, err := c.CreateProducer(pulsar.ProducerOptions{
+		Topic: p.Topic,
+	})
+	if err != nil {
+		log.Fatalf("Could not start the producer: %v", err)
+		return nil, err
 	}
-*/
-func SendMessage(p *Instance) {
-	_, err := p.p.Send(p.ctx, &pulsar.ProducerMessage{
-		Payload: []byte("hello"),
-		//	SequenceID: &realData.Block.Height,
+	return producer, err
+}
+func SendMessage(p *Instance, log *zap.SugaredLogger, data types.EventDataNewBlock) {
+	b, err := json.Marshal(data)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	msg_id, err := p.p.Send(p.ctx, &pulsar.ProducerMessage{
+		Payload:    []byte(string(b)),
+		SequenceID: &data.Block.Height,
 	})
 	if err != nil {
 		fmt.Println("Failed to publish message", err)
 	}
+	log.Debugw("submitted message with", "MessageId", fmt.Sprint(msg_id.EntryID()))
 
 }
