@@ -15,7 +15,6 @@ import (
 	"google.golang.org/grpc"
 
 	"rpc_watcher/rpcwatcher"
-	"rpc_watcher/rpcwatcher/database"
 	"rpc_watcher/rpcwatcher/store"
 
 	"rpc_watcher/rpcwatcher/logging"
@@ -59,31 +58,48 @@ func main() {
 		}()
 	}
 
-	db, err := database.New(c.DatabaseConnectionURL)
+	/*
+		db, err := database.New(c.DatabaseConnectionURL)
 
-	if err != nil {
-		panic(err)
-	}
+		if err != nil {
+			panic(err)
+		}
+	*/
 
 	s, err := store.NewClient(c.RedisURL)
 	if err != nil {
 		l.Panicw("unable to start redis client", "error", err)
 	}
-	var chains []cnsmodels.Chain
-
 	watchers := map[string]watcherInstance{}
-
-	chains, err = db.Chains()
-
+	var chain = cnsmodels.Chain{
+		ID:                  1,
+		Enabled:             true,
+		ChainName:           "localterra",
+		Logo:                "localterra",
+		DisplayName:         "localterra",
+		PrimaryChannel:      map[string]string{},
+		Denoms:              []cnsmodels.Denom{},
+		DemerisAddresses:    []string{},
+		GenesisHash:         "",
+		NodeInfo:            cnsmodels.NodeInfo{},
+		ValidBlockThresh:    0,
+		DerivationPath:      "",
+		SupportedWallets:    []string{},
+		BlockExplorer:       "",
+		PublicNodeEndpoints: cnsmodels.PublicNodeEndpoints{},
+		CosmosSDKVersion:    Version,
+	}
+	chainsMap := map[string]cnsmodels.Chain{}
+	newChainsMap := map[string]cnsmodels.Chain{}
+	chainsMap[chain.ChainName] = chain
+	newChainsMap[chain.ChainName] = chain
 	if err != nil {
 		spew.Dump(err)
 		panic(err)
 	}
 
-	chainsMap := mapChains(chains)
-
 	for cn := range chainsMap {
-		updatedChainsMap, watcher, cancel, shouldContinue := startNewWatcher(cn, chainsMap, c, db, s, l, false)
+		updatedChainsMap, watcher, cancel, shouldContinue := startNewWatcher(cn, chainsMap, c, s, l, false)
 		chainsMap = updatedChainsMap
 		if shouldContinue {
 			continue
@@ -97,13 +113,10 @@ func main() {
 
 	for range time.Tick(1 * time.Second) {
 
-		ch, err := db.Chains()
 		if err != nil {
 			l.Errorw("cannot get chains from db", "error", err)
 			continue
 		}
-
-		newChainsMap := mapChains(ch)
 
 		chainsDiff, err := diff.Diff(chainsMap, newChainsMap)
 		if err != nil {
@@ -132,7 +145,7 @@ func main() {
 			case diff.CREATE:
 				name := d.Path[0]
 
-				_, watcher, cancel, shouldContinue := startNewWatcher(name, chainsMap, c, db, s, l, true)
+				_, watcher, cancel, shouldContinue := startNewWatcher(name, chainsMap, c, s, l, true)
 				if shouldContinue {
 					continue
 				}
@@ -146,9 +159,10 @@ func main() {
 			}
 		}
 	}
+
 }
 
-func startNewWatcher(chainName string, chainsMap map[string]cnsmodels.Chain, config *rpcwatcher.Config, db *database.Instance, s *store.Store,
+func startNewWatcher(chainName string, chainsMap map[string]cnsmodels.Chain, config *rpcwatcher.Config, s *store.Store,
 	l *zap.SugaredLogger, isNewChain bool) (map[string]cnsmodels.Chain, *rpcwatcher.Watcher, context.CancelFunc, bool) {
 	eventMappings := rpcwatcher.StandardMappings
 	client_options := producer.ClientOptions{
@@ -203,7 +217,7 @@ func startNewWatcher(chainName string, chainsMap map[string]cnsmodels.Chain, con
 
 	}
 
-	watcher, err := rpcwatcher.NewWatcher(endpoint(chainName), chainName, l, config.ApiURL, grpcEndpoint, db, s, p, rpcwatcher.EventsToSubTo, eventMappings)
+	watcher, err := rpcwatcher.NewWatcher(endpoint(chainName), chainName, l, config.ApiURL, grpcEndpoint, s, p, rpcwatcher.EventsToSubTo, eventMappings)
 	//spew.Dump(err)
 	if err != nil {
 		if isNewChain {

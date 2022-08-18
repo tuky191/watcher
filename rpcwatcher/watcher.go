@@ -3,7 +3,6 @@ package rpcwatcher
 import (
 	"context"
 	"fmt"
-	"rpc_watcher/rpcwatcher/database"
 	producer "rpc_watcher/rpcwatcher/pulsar"
 	"rpc_watcher/rpcwatcher/store"
 	"time"
@@ -66,7 +65,6 @@ type Watcher struct {
 	eventTypeMappings map[string][]DataHandler
 	apiUrl            string
 	client            *client.WSClient
-	d                 *database.Instance
 	l                 *zap.SugaredLogger
 	store             *store.Store
 	producer          *producer.Instance
@@ -83,7 +81,6 @@ func NewWatcher(
 	endpoint, chainName string,
 	logger *zap.SugaredLogger,
 	apiUrl, grpcEndpoint string,
-	db *database.Instance,
 	s *store.Store,
 	p *producer.Instance,
 	subscriptions []string,
@@ -123,7 +120,6 @@ func NewWatcher(
 
 	w := &Watcher{
 		apiUrl:            apiUrl,
-		d:                 db,
 		client:            ws,
 		l:                 logger,
 		store:             s,
@@ -243,7 +239,7 @@ func resubscribe(w *Watcher) {
 		count++
 		w.l.Debugw("this is count", "count", count)
 
-		ww, err := NewWatcher(w.endpoint, w.Name, w.l, w.apiUrl, w.grpcEndpoint, w.d, w.store, w.producer, w.subs, w.eventTypeMappings)
+		ww, err := NewWatcher(w.endpoint, w.Name, w.l, w.apiUrl, w.grpcEndpoint, w.store, w.producer, w.subs, w.eventTypeMappings)
 		if err != nil {
 			w.l.Errorw("cannot resubscribe to chain", "name", w.Name, "endpoint", w.endpoint, "error", err)
 			continue
