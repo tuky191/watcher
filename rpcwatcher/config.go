@@ -34,8 +34,9 @@ func (c *Config) Validate() error {
 func ReadConfig() (*Config, error) {
 	var c Config
 	return &c, configuration.ReadConfig(&c, "rpcwatcher", map[string]string{
-		"RedisURL":           defaultRedisURL,
-		"ApiURL":             defaultApiURL,
-		"ProfilingServerURL": defaultProfilingServerURL,
+		"RedisURL":              defaultRedisURL,
+		"ApiURL":                defaultApiURL,
+		"ProfilingServerURL":    defaultProfilingServerURL,
+		"DatabaseConnectionURL": defaultProfilingServerURL,
 	})
 }

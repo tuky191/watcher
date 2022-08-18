@@ -35,15 +35,6 @@ var (
 			HandleNewBlock,
 		},
 	}
-	TerraMappings = map[string][]DataHandler{
-		EventsTx: {
-			HandleMessage,
-		},
-		EventsBlock: {
-			HandleNewBlock,
-			//		HandleTerraBlock,
-		},
-	}
 )
 
 type DataHandler func(watcher *Watcher, event coretypes.ResultEvent)
@@ -149,7 +140,7 @@ func NewWatcher(
 func Start(watcher *Watcher, ctx context.Context) {
 	watcher.runContext = ctx
 	//spew.Dump(ctx)
-	//spew.Dump(watcher)
+
 	go watcher.startChain(ctx)
 }
 

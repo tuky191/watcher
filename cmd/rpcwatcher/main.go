@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 
 	"rpc_watcher/rpcwatcher"
 
@@ -60,7 +60,6 @@ func main() {
 
 func startNewWatcher(chainName string, config *rpcwatcher.Config,
 	l *zap.SugaredLogger) (*rpcwatcher.Watcher, context.CancelFunc) {
-	eventMappings := rpcwatcher.StandardMappings
 	client_options := producer.ClientOptions{
 		URL:               "pulsar://localhost:6650",
 		OperationTimeout:  30 * time.Second,
@@ -74,9 +73,9 @@ func startNewWatcher(chainName string, config *rpcwatcher.Config,
 	}
 	//grpcEndpoint := fmt.Sprintf("%s:%d", chainName, grpcPort)
 	grpcEndpoint := fmt.Sprintf("%s:%d", "127.0.0.1", grpcPort)
-	if chainName == "localterra" { // special case, needs to observe new blocks too
-		eventMappings = rpcwatcher.TerraMappings
+	//if chainName == "localterra" { // special case, needs to observe new blocks too
 
+	/*
 		// caching node_info for localterra
 		grpcConn, err := grpc.Dial(
 			grpcEndpoint,
@@ -91,16 +90,18 @@ func startNewWatcher(chainName string, config *rpcwatcher.Config,
 				l.Errorw("cannot close gRPC client", "error", err, "chain_name", chainName)
 			}
 		}()
-		/*
-			nodeInfoQuery := tmservice.NewServiceClient(grpcConn)
-			nodeInfoRes, err := nodeInfoQuery.GetNodeInfo(context.Background(), &tmservice.GetNodeInfoRequest{})
-			if err != nil {
-				l.Errorw("cannot get node info", "error", err)
-			}*/
+	*/
+	/*
+		nodeInfoQuery := tmservice.NewServiceClient(grpcConn)
+		nodeInfoRes, err := nodeInfoQuery.GetNodeInfo(context.Background(), &tmservice.GetNodeInfoRequest{})
+		if err != nil {
+			l.Errorw("cannot get node info", "error", err)
+		}*/
 
-	}
+	//	}
 
-	watcher, err := rpcwatcher.NewWatcher(endpoint(chainName), chainName, l, config.ApiURL, grpcEndpoint, p, rpcwatcher.EventsToSubTo, eventMappings)
+	watcher, err := rpcwatcher.NewWatcher("http://127.0.0.1:26657", chainName, l, config.ApiURL, grpcEndpoint, p, rpcwatcher.EventsToSubTo, rpcwatcher.StandardMappings)
+	spew.Dump(watcher)
 	if err != nil {
 		l.Errorw("cannot create chain", "error", err)
 		return nil, nil
@@ -111,7 +112,9 @@ func startNewWatcher(chainName string, config *rpcwatcher.Config,
 	return watcher, cancel
 }
 
+/*
 func endpoint(chainName string) string {
 	return "http://127.0.0.1:26657"
 	//return fmt.Sprintf("http://%s:26657", chainName)
 }
+*/
