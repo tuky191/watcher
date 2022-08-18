@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	producer "rpc_watcher/rpcwatcher/pulsar"
-	"rpc_watcher/rpcwatcher/store"
 	"time"
 
 	tmjson "github.com/tendermint/tendermint/libs/json"
@@ -38,15 +37,6 @@ var (
 			HandleNewBlock,
 		},
 	}
-	TerraMappings = map[string][]DataHandler{
-		EventsTx: {
-			HandleMessage,
-		},
-		EventsBlock: {
-			HandleNewBlock,
-			//		HandleTerraBlock,
-		},
-	}
 )
 
 type DataHandler func(watcher *Watcher, event coretypes.ResultEvent)
@@ -66,7 +56,6 @@ type Watcher struct {
 	apiUrl            string
 	client            *client.WSClient
 	l                 *zap.SugaredLogger
-	store             *store.Store
 	producer          *producer.Instance
 	runContext        context.Context
 	endpoint          string
@@ -81,7 +70,6 @@ func NewWatcher(
 	endpoint, chainName string,
 	logger *zap.SugaredLogger,
 	apiUrl, grpcEndpoint string,
-	s *store.Store,
 	p *producer.Instance,
 	subscriptions []string,
 	eventTypeMappings map[string][]DataHandler,
@@ -122,7 +110,6 @@ func NewWatcher(
 		apiUrl:            apiUrl,
 		client:            ws,
 		l:                 logger,
-		store:             s,
 		producer:          p,
 		Name:              chainName,
 		endpoint:          endpoint,
@@ -148,7 +135,7 @@ func NewWatcher(
 
 	go w.readChannel()
 
-	go w.checkError()
+	//go w.checkError()
 	return w, nil
 }
 
@@ -204,29 +191,7 @@ func (w *Watcher) readChannel() {
 	}
 }
 
-func (w *Watcher) checkError() {
-	for {
-		select {
-		case <-w.stopErrorChannel:
-			return
-		default:
-			select { //nolint Intentional channel construct
-			case err := <-w.ErrorChannel:
-				if err != nil {
-					storeErr := w.store.SetWithExpiry(w.Name, "false", 0)
-					if storeErr != nil {
-						w.l.Errorw("unable to set chain name to false", "store error", storeErr,
-							"error", err)
-					}
-					w.l.Errorw("detected error", "chain_name", w.Name, "error", err)
-					resubscribe(w)
-					return
-				}
-			}
-		}
-	}
-}
-
+/*
 func resubscribe(w *Watcher) {
 	count := 0
 	for {
@@ -258,7 +223,7 @@ func resubscribe(w *Watcher) {
 		return
 	}
 }
-
+*/
 func (w *Watcher) startChain(ctx context.Context) {
 	for {
 		select {
@@ -301,21 +266,8 @@ func HandleMessage(w *Watcher, data coretypes.ResultEvent) {
 	txHash := txHashSlice[0]
 	chainName := w.Name
 	eventTx := data.Data.(types.EventDataTx)
-	height := eventTx.Height
-	key := store.GetKey(chainName, txHash)
-
-	if eventTx.Result.Code != 0 {
-		logStr := fmt.Sprintf(nonZeroCodeErrFmt, chainName, eventTx.Result.Log)
-
-		w.l.Debugw("transaction error", "chainName", chainName, "txHash", txHash, "log", eventTx.Result.Log)
-
-		if err := w.store.SetFailedWithErr(key, logStr, height); err != nil {
-			w.l.Errorw("cannot set failed with err", "chain name", chainName, "error", err,
-				"txHash", txHash, "code", eventTx.Result.Code)
-		}
-
-		return
-	}
+	w.l.Debugw("Transaction Info", "chainName", chainName, "txHash", txHash, "log", eventTx.Result.Log)
+	//height := eventTx.Height
 
 }
 

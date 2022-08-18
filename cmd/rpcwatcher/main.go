@@ -10,7 +10,6 @@ import (
 	"go.uber.org/zap"
 
 	"rpc_watcher/rpcwatcher"
-	"rpc_watcher/rpcwatcher/store"
 
 	"rpc_watcher/rpcwatcher/logging"
 
@@ -52,10 +51,6 @@ func main() {
 		}()
 	}
 
-	s, err := store.NewClient(c.RedisURL)
-	if err != nil {
-		l.Panicw("unable to start redis client", "error", err)
-	}
 	watchers := map[string]watcherInstance{}
 	var chain = cnsmodels.Chain{
 		ID:                  1,
@@ -80,7 +75,7 @@ func main() {
 		spew.Dump(err)
 		panic(err)
 	}
-	watcher, cancel := startNewWatcher(chain.ChainName, c, s, l, false)
+	watcher, cancel := startNewWatcher(chain.ChainName, c, l, false)
 	watchers[chain.ChainName] = watcherInstance{
 		watcher: watcher,
 		cancel:  cancel,
@@ -91,7 +86,7 @@ func main() {
 
 }
 
-func startNewWatcher(chainName string, config *rpcwatcher.Config, s *store.Store,
+func startNewWatcher(chainName string, config *rpcwatcher.Config,
 	l *zap.SugaredLogger, isNewChain bool) (*rpcwatcher.Watcher, context.CancelFunc) {
 	eventMappings := rpcwatcher.StandardMappings
 	client_options := producer.ClientOptions{
@@ -107,7 +102,7 @@ func startNewWatcher(chainName string, config *rpcwatcher.Config, s *store.Store
 	}
 	grpcEndpoint := fmt.Sprintf("%s:%d", "127.0.0.1", grpcPort)
 
-	watcher, err := rpcwatcher.NewWatcher(endpoint(chainName), chainName, l, config.ApiURL, grpcEndpoint, s, p, rpcwatcher.EventsToSubTo, eventMappings)
+	watcher, err := rpcwatcher.NewWatcher(endpoint(chainName), chainName, l, config.ApiURL, grpcEndpoint, p, rpcwatcher.EventsToSubTo, eventMappings)
 	if err != nil {
 		l.Errorw("cannot create chain", "error", err)
 		return nil, nil
