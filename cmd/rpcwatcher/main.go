@@ -11,9 +11,8 @@ import (
 
 	"rpc_watcher/rpcwatcher"
 
-	"rpc_watcher/rpcwatcher/logging"
-
 	_ "net/http/pprof"
+	"rpc_watcher/rpcwatcher/logging"
 	producer "rpc_watcher/rpcwatcher/pulsar"
 
 	cnsmodels "github.com/emerishq/demeris-backend-models/cns"
@@ -90,7 +89,7 @@ func startNewWatcher(chainName string, config *rpcwatcher.Config,
 	l *zap.SugaredLogger, isNewChain bool) (*rpcwatcher.Watcher, context.CancelFunc) {
 	eventMappings := rpcwatcher.StandardMappings
 	client_options := producer.ClientOptions{
-		URL:               "pulsar://localhost:6650",
+		URL:               config.PulsarURL,
 		OperationTimeout:  30 * time.Second,
 		ConnectionTimeout: 30 * time.Second,
 	}
@@ -102,7 +101,7 @@ func startNewWatcher(chainName string, config *rpcwatcher.Config,
 	}
 	grpcEndpoint := fmt.Sprintf("%s:%d", "127.0.0.1", grpcPort)
 
-	watcher, err := rpcwatcher.NewWatcher(endpoint(chainName), chainName, l, config.ApiURL, grpcEndpoint, p, rpcwatcher.EventsToSubTo, eventMappings)
+	watcher, err := rpcwatcher.NewWatcher(config.RpcURL, chainName, l, config.ApiURL, grpcEndpoint, p, rpcwatcher.EventsToSubTo, eventMappings)
 	if err != nil {
 		l.Errorw("cannot create chain", "error", err)
 		return nil, nil

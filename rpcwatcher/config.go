@@ -8,18 +8,18 @@ import (
 )
 
 const (
-	defaultRedisURL           = "redis-master:6379"
-	defaultApiURL             = "http://api-server:8000"
+	defaultPulsarURL          = "pulsar://localhost:6650"
+	defaultRpcURL             = "http://127.0.0.1:26657"
 	defaultProfilingServerURL = "localhost:6060"
 )
 
 type Config struct {
-	DatabaseConnectionURL string `validate:"required"`
-	RedisURL              string `validate:"required"`
-	ApiURL                string `validate:"required,url"`
-	ProfilingServerURL    string `validate:"hostname_port"`
-	Debug                 bool
-	JSONLogs              bool
+	PulsarURL          string `validate:"required"`
+	RpcURL             string `validate:"required"`
+	ProfilingServerURL string `validate:"hostname_port"`
+	ApiURL             string `validate:"required"`
+	Debug              bool
+	JSONLogs           bool
 }
 
 func (c *Config) Validate() error {
@@ -34,8 +34,8 @@ func (c *Config) Validate() error {
 func ReadConfig() (*Config, error) {
 	var c Config
 	return &c, configuration.ReadConfig(&c, "rpcwatcher", map[string]string{
-		"RedisURL":           defaultRedisURL,
-		"ApiURL":             defaultApiURL,
+		"PulsarURL":          defaultPulsarURL,
+		"RpcURL":             defaultRpcURL,
 		"ProfilingServerURL": defaultProfilingServerURL,
 	})
 }

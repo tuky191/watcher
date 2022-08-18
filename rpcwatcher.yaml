@@ -1,5 +1,5 @@
-DatabaseConnectionURL: 'postgresql://root@localhost:26257/defaultdb?sslmode=disable'
-RedisURL: '127.0.0.1:6379'
-ApiURL: 'http://localhost:8000'
+PulsarURL: 'pulsar://localhost:6650'
+RpcURL: 'http://127.0.0.1:26657'
+ApiURL: 'http://127.0.0.1:8000'
 Debug: true
 JSONLogs: true

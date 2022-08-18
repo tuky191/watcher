@@ -134,8 +134,7 @@ func NewWatcher(
 	wd.Start()
 
 	go w.readChannel()
-
-	//go w.checkError()
+	go w.checkError()
 	return w, nil
 }
 
@@ -173,8 +172,6 @@ func (w *Watcher) readChannel() {
 				}
 
 				e := coretypes.ResultEvent{}
-				//spew.Dump(e)
-				//spew.Dump(data.Result)
 				if err := tmjson.Unmarshal(data.Result, &e); err != nil {
 					w.l.Errorw("cannot unmarshal data into resultevent", "error", err, "chain", w.Name)
 					continue
@@ -191,39 +188,48 @@ func (w *Watcher) readChannel() {
 	}
 }
 
-/*
+func (w *Watcher) checkError() {
+	for {
+		select {
+		case <-w.stopErrorChannel:
+			return
+		default:
+			select { //nolint Intentional channel construct
+			case err := <-w.ErrorChannel:
+				if err != nil {
+					w.l.Errorw("detected error", "chain_name", w.Name, "error", err)
+
+				}
+				resubscribe(w)
+				return
+			}
+		}
+	}
+}
+
 func resubscribe(w *Watcher) {
 	count := 0
 	for {
-		err := w.store.SetWithExpiry(w.Name, "resubscribing", 0)
-		if err != nil {
-			w.l.Errorw("unable to set chain name with status resubscribing", "error", err)
-		}
+		w.l.Debugw("some error happened: resubscribing")
 
 		time.Sleep(defaultResubscribeSleep)
 		count++
 		w.l.Debugw("this is count", "count", count)
 
-		ww, err := NewWatcher(w.endpoint, w.Name, w.l, w.apiUrl, w.grpcEndpoint, w.store, w.producer, w.subs, w.eventTypeMappings)
+		ww, err := NewWatcher(w.endpoint, w.Name, w.l, w.apiUrl, w.grpcEndpoint, w.producer, w.subs, w.eventTypeMappings)
 		if err != nil {
 			w.l.Errorw("cannot resubscribe to chain", "name", w.Name, "endpoint", w.endpoint, "error", err)
 			continue
 		}
-
 		ww.runContext = w.runContext
 		w = ww
-
 		Start(w, w.runContext)
-		err = w.store.SetWithExpiry(w.Name, "true", 0)
-		if err != nil {
-			w.l.Errorw("unable to set chain name as true", "error", err)
-		}
 
 		w.l.Infow("successfully reconnected", "name", w.Name, "endpoint", w.endpoint)
 		return
 	}
 }
-*/
+
 func (w *Watcher) startChain(ctx context.Context) {
 	for {
 		select {
