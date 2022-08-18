@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/r3labs/diff"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
@@ -112,52 +111,7 @@ func main() {
 	}
 
 	for range time.Tick(1 * time.Second) {
-
-		if err != nil {
-			l.Errorw("cannot get chains from db", "error", err)
-			continue
-		}
-
-		chainsDiff, err := diff.Diff(chainsMap, newChainsMap)
-		if err != nil {
-			l.Errorw("cannot diff maps", "error", err)
-			continue
-		}
-
-		if chainsDiff == nil {
-			continue
-		}
-
-		l.Debugw("diff", "diff", chainsDiff)
-		for _, d := range chainsDiff {
-			switch d.Type {
-			case diff.DELETE:
-				name := d.Path[0]
-				wi, ok := watchers[name]
-				if !ok {
-					// we probably deleted this already somehow
-					continue
-				}
-				wi.cancel()
-
-				delete(watchers, name)
-				delete(chainsMap, name)
-			case diff.CREATE:
-				name := d.Path[0]
-
-				_, watcher, cancel, shouldContinue := startNewWatcher(name, chainsMap, c, s, l, true)
-				if shouldContinue {
-					continue
-				}
-
-				watchers[name] = watcherInstance{
-					watcher: watcher,
-					cancel:  cancel,
-				}
-
-				chainsMap[name] = newChainsMap[name]
-			}
-		}
+		continue
 	}
 
 }
