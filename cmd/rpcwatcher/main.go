@@ -56,6 +56,8 @@ func main() {
 		watcher: watcher,
 		cancel:  cancel,
 	}
+	for range time.Tick(1 * time.Second) {
+	}
 }
 
 func startNewWatcher(chainName string, config *rpcwatcher.Config,
