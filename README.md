@@ -19,7 +19,7 @@ docker compose up -d
 
 Optional:
 
-Setup the pulsar-manager [pulsar-manager](https://github.com/apache/pulsar-manager) 
+Setup the [pulsar-manager](https://github.com/apache/pulsar-manager) 
 
 ```sh
 CSRF_TOKEN=$(curl http://backend-service:7750/pulsar-manager/csrf-token)
