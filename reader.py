@@ -5,13 +5,16 @@ import pprint
 import re
 client = pulsar.Client('pulsar://localhost:6650')
 msg_id = pulsar.MessageId.earliest
-rx = re.compile('persistent://public/default/.*')
-reader = client.create_reader(topic='localterra', start_message_id=msg_id)
-
+reader_block = client.create_reader(
+    topic="persistent://terra/localterra/ws/tm.event='NewBlock'", start_message_id=msg_id)
+reader_tx = client.create_reader(
+    topic="persistent://terra/localterra/ws/tm.event='Tx'", start_message_id=msg_id)
 while True:
-    msg = reader.read_next()
-    pprint.pprint(msg.message_id())
-    pprint.pprint(msg.data())
+    msg = reader_block.read_next()
+    print("Received NewBlock message '{}' id='{}'".format(
+        msg.data(), msg.message_id()))
+    msg = reader_tx.read_next()
+    print("Received NewTx message '{}' id='{}'".format(
+        msg.data(), msg.message_id()))
 
-    #print("Received message '{}' id='{}'".format(msg.data(), msg.message_id()))
     # No acknowledgment
