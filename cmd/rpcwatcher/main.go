@@ -13,7 +13,6 @@ import (
 
 	_ "net/http/pprof"
 	"rpc_watcher/rpcwatcher/logging"
-	producer "rpc_watcher/rpcwatcher/pulsar"
 
 	cnsmodels "github.com/emerishq/demeris-backend-models/cns"
 )
@@ -88,20 +87,25 @@ func main() {
 func startNewWatcher(chainName string, config *rpcwatcher.Config,
 	l *zap.SugaredLogger, isNewChain bool) (*rpcwatcher.Watcher, context.CancelFunc) {
 	eventMappings := rpcwatcher.StandardMappings
-	client_options := producer.ClientOptions{
-		URL:               config.PulsarURL,
-		OperationTimeout:  30 * time.Second,
-		ConnectionTimeout: 30 * time.Second,
-	}
-	producer_options := producer.ProducerOptions{Topic: chainName}
-	p, err := producer.New(&client_options, &producer_options)
 
-	if err != nil {
-		l.Panicw("unable to start pulsar producer", "error", err)
-	}
+	/*
+			for cn := range chainsMap {
+			updatedChainsMap, watcher, cancel, shouldContinue := startNewWatcher(cn, chainsMap, c, s, l, false)
+			chainsMap = updatedChainsMap
+			if shouldContinue {
+				continue
+			}
+
+			watchers[cn] = watcherInstance{
+				watcher: watcher,
+				cancel:  cancel,
+			}
+		}
+	*/
+
 	grpcEndpoint := fmt.Sprintf("%s:%d", "127.0.0.1", grpcPort)
 
-	watcher, err := rpcwatcher.NewWatcher(config.RpcURL, chainName, l, config.ApiURL, grpcEndpoint, p, rpcwatcher.EventsToSubTo, eventMappings)
+	watcher, err := rpcwatcher.NewWatcher(config.RpcURL, chainName, l, config.ApiURL, grpcEndpoint, rpcwatcher.EventsToSubTo, eventMappings, config)
 	if err != nil {
 		l.Errorw("cannot create chain", "error", err)
 		return nil, nil

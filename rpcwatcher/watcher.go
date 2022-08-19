@@ -6,6 +6,7 @@ import (
 	producer "rpc_watcher/rpcwatcher/pulsar"
 	"time"
 
+	"github.com/apache/pulsar-client-go/pulsar"
 	tmjson "github.com/tendermint/tendermint/libs/json"
 	coretypes "github.com/tendermint/tendermint/rpc/core/types"
 	"github.com/tendermint/tendermint/rpc/jsonrpc/client"
@@ -56,7 +57,7 @@ type Watcher struct {
 	apiUrl            string
 	client            *client.WSClient
 	l                 *zap.SugaredLogger
-	producer          *producer.Instance
+	producer          map[string]producer.Instance
 	runContext        context.Context
 	endpoint          string
 	grpcEndpoint      string
@@ -64,22 +65,39 @@ type Watcher struct {
 	stopReadChannel   chan struct{}
 	stopErrorChannel  chan struct{}
 	watchdog          *watchdog
+	config            *Config
 }
 
 func NewWatcher(
 	endpoint, chainName string,
 	logger *zap.SugaredLogger,
 	apiUrl, grpcEndpoint string,
-	p *producer.Instance,
 	subscriptions []string,
 	eventTypeMappings map[string][]DataHandler,
+	config *Config,
 ) (*Watcher, error) {
 	if len(eventTypeMappings) == 0 {
 		return nil, fmt.Errorf("event type mappings cannot be empty")
 	}
-
+	producers := map[string]producer.Instance{}
 	for _, eventKind := range subscriptions {
+
+		o := producer.Options{
+			ClientOptions: pulsar.ClientOptions{
+				URL:               config.PulsarURL,
+				OperationTimeout:  30 * time.Second,
+				ConnectionTimeout: 30 * time.Second,
+			},
+			ProducerOptions: pulsar.ProducerOptions{Topic: "persistent://terra/" + chainName + "/ws/" + eventKind},
+		}
+		p, err := producer.New(&o)
+
+		if err != nil {
+			logger.Panicw("unable to start pulsar producer", "error", err)
+		}
+		producers[eventKind] = *p
 		handlers, ok := eventTypeMappings[eventKind]
+
 		if !ok || len(handlers) == 0 {
 			return nil, fmt.Errorf("event %s found in subscriptions but no handler defined for it", eventKind)
 		}
@@ -110,7 +128,7 @@ func NewWatcher(
 		apiUrl:            apiUrl,
 		client:            ws,
 		l:                 logger,
-		producer:          p,
+		producer:          producers,
 		Name:              chainName,
 		endpoint:          endpoint,
 		grpcEndpoint:      grpcEndpoint,
@@ -121,6 +139,7 @@ func NewWatcher(
 		stopErrorChannel:  make(chan struct{}),
 		ErrorChannel:      make(chan error),
 		watchdog:          wd,
+		config:            config,
 	}
 
 	w.l.Debugw("creating rpcwatcher with config", "apiurl", apiUrl)
@@ -216,7 +235,7 @@ func resubscribe(w *Watcher) {
 		count++
 		w.l.Debugw("this is count", "count", count)
 
-		ww, err := NewWatcher(w.endpoint, w.Name, w.l, w.apiUrl, w.grpcEndpoint, w.producer, w.subs, w.eventTypeMappings)
+		ww, err := NewWatcher(w.endpoint, w.Name, w.l, w.apiUrl, w.grpcEndpoint, w.subs, w.eventTypeMappings, w.config)
 		if err != nil {
 			w.l.Errorw("cannot resubscribe to chain", "name", w.Name, "endpoint", w.endpoint, "error", err)
 			continue
@@ -250,10 +269,8 @@ func (w *Watcher) startChain(ctx context.Context) {
 					w.l.Warnw("got event subscribed that didn't have a event mapping associated", "chain", w.Name, "eventName", data.Query)
 					continue
 				}
-				//spew.Dump(handlers)
 				for _, handler := range handlers {
-					//spew.Dump(w)
-					//spew.Dump(data)
+
 					handler(w, data)
 				}
 			}
@@ -273,6 +290,7 @@ func HandleMessage(w *Watcher, data coretypes.ResultEvent) {
 	chainName := w.Name
 	eventTx := data.Data.(types.EventDataTx)
 	w.l.Debugw("Transaction Info", "chainName", chainName, "txHash", txHash, "log", eventTx.Result.Log)
+	producer.SendMessage(w.producer, w.l, data)
 	//height := eventTx.Height
 
 }
@@ -377,6 +395,6 @@ func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 	if realData.Block == nil {
 		w.l.Warnw("weird block received on rpc, it was empty while it shouldn't", "chain_name", w.Name)
 	}
-	producer.SendMessage(w.producer, w.l, realData)
+	producer.SendMessage(w.producer, w.l, data)
 
 }
