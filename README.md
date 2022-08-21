@@ -17,9 +17,28 @@ cd watcher
 docker compose up -d
 ```
 
-Optional:
+Create tenant: terra, namespace: localterra
 
-Setup the [pulsar-manager](https://github.com/apache/pulsar-manager) 
+```sh
+docker exec -it pulsar /pulsar/bin/pulsar-admin tenants create terra
+docker exec -it pulsar /pulsar/bin/pulsar-admin namespaces create terra/localterra
+```
+
+Set retention policy to infinite for the localterra namespace:
+
+```sh
+docker exec -it pulsar /pulsar/bin/pulsar-admin namespaces set-retention terra/localterra --time -1 --size -1
+```
+
+
+Optional, setup the [pulsar-manager](https://github.com/apache/pulsar-manager)  and add the terra tenant:
+
+```sh
+Service URL
+http://pulsar:8080
+Bookie URL
+http://pulsar:6650
+```
 
 ```sh
 CSRF_TOKEN=$(curl http://backend-service:7750/pulsar-manager/csrf-token)
