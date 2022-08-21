@@ -58,7 +58,7 @@ go run cmd/rpcwatcher/main.go
 Open new terminal:
 
 ```sh
-python3 subscriber.py
+python3 consumer.py
 ```
 
 
