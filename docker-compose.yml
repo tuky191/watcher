@@ -2,16 +2,22 @@ version: '3'
 
 services:
   pulsar_manager:
-    image: apachepulsar/pulsar-manager:v0.2.0
+    image: apachepulsar/pulsar-manager:v0.3.0
     ports:
       - '9527:9527'
       - '7750:7750'
     environment:
       SPRING_CONFIGURATION_FILE: /pulsar-manager/pulsar-manager/application.properties
+    #volumes:
+    #  - ./application.properties:/pulsar-manager/pulsar-manager/application.properties
     networks:
       - watcher
+    depends_on:
+      - pulsar
   pulsar:
-    image: apachepulsar/pulsar:2.6.0
+    #image: apachepulsar/pulsar:latest
+    #image built for arm64-linux / apple M1
+    image: kezhenxu94/pulsar:latest
     container_name: pulsar
     ports:
       - 8081:8080

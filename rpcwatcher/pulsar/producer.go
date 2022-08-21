@@ -5,10 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"encoding/json"
-
 	"github.com/apache/pulsar-client-go/pulsar"
-	coretypes "github.com/tendermint/tendermint/rpc/core/types"
 	"go.uber.org/zap"
 )
 
@@ -58,20 +55,12 @@ func NewWithClient(c pulsar.Client, p *pulsar.ProducerOptions) (pulsar.Producer,
 	}
 	return producer, err
 }
-func SendMessage(producers map[string]Instance, log *zap.SugaredLogger, data coretypes.ResultEvent) {
-	b, err := json.Marshal(data)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+func SendMessage(producer Instance, log *zap.SugaredLogger, message pulsar.ProducerMessage) {
 
-	msg_id, err := producers[data.Query].p.Send(producers[data.Query].ctx, &pulsar.ProducerMessage{
-		Payload: []byte(string(b)),
-		//SequenceID: &data.Block.Height,
-	})
+	msg_id, err := producer.p.Send(producer.ctx, &message)
 	if err != nil {
 		fmt.Println("Failed to publish message", err)
 	}
-	log.Debugw("submitted message in:", data.Query, "with", "MessageId", fmt.Sprint(msg_id.EntryID()))
+	log.Debugw("submitted message in:", "data.Query", "with", "MessageId", fmt.Sprint(msg_id.EntryID()))
 
 }

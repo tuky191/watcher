@@ -1,12 +1,18 @@
 package rpcwatcher
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
 	producer "rpc_watcher/rpcwatcher/pulsar"
+	"strconv"
 	"time"
 
 	"github.com/apache/pulsar-client-go/pulsar"
+	"github.com/davecgh/go-spew/spew"
 	tmjson "github.com/tendermint/tendermint/libs/json"
 	coretypes "github.com/tendermint/tendermint/rpc/core/types"
 	"github.com/tendermint/tendermint/rpc/jsonrpc/client"
@@ -48,6 +54,14 @@ type WsResponse struct {
 
 type Events map[string][]string
 
+/*
+var (
+	aData = map[string]coretypes.ResultEvent{
+		"NewBlock": &types.EventDataNewBlock,
+		"Tx": types.EventDataTx,
+	}
+)*/
+
 type Watcher struct {
 	Name         string
 	DataChannel  chan coretypes.ResultEvent
@@ -57,7 +71,7 @@ type Watcher struct {
 	apiUrl            string
 	client            *client.WSClient
 	l                 *zap.SugaredLogger
-	producer          map[string]producer.Instance
+	producers         map[string]producer.Instance
 	runContext        context.Context
 	endpoint          string
 	grpcEndpoint      string
@@ -88,7 +102,7 @@ func NewWatcher(
 				OperationTimeout:  30 * time.Second,
 				ConnectionTimeout: 30 * time.Second,
 			},
-			ProducerOptions: pulsar.ProducerOptions{Topic: "persistent://terra/" + chainName + "/ws/" + eventKind},
+			ProducerOptions: pulsar.ProducerOptions{Topic: "persistent://terra/" + chainName + "/" + eventKind},
 		}
 		p, err := producer.New(&o)
 
@@ -128,7 +142,7 @@ func NewWatcher(
 		apiUrl:            apiUrl,
 		client:            ws,
 		l:                 logger,
-		producer:          producers,
+		producers:         producers,
 		Name:              chainName,
 		endpoint:          endpoint,
 		grpcEndpoint:      grpcEndpoint,
@@ -290,8 +304,17 @@ func HandleMessage(w *Watcher, data coretypes.ResultEvent) {
 	chainName := w.Name
 	eventTx := data.Data.(types.EventDataTx)
 	w.l.Debugw("Transaction Info", "chainName", chainName, "txHash", txHash, "log", eventTx.Result.Log)
-	producer.SendMessage(w.producer, w.l, data)
-	//height := eventTx.Height
+	b, err := json.Marshal(data.Data)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	message := pulsar.ProducerMessage{
+		Payload:    []byte(string(b)),
+		SequenceID: &eventTx.Height,
+	}
+
+	producer.SendMessage(w.producers[data.Query], w.l, message)
 
 }
 
@@ -395,6 +418,41 @@ func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 	if realData.Block == nil {
 		w.l.Warnw("weird block received on rpc, it was empty while it shouldn't", "chain_name", w.Name)
 	}
-	producer.SendMessage(w.producer, w.l, data)
+	b, err := json.Marshal(realData)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	message := pulsar.ProducerMessage{
+		Payload:    []byte(string(b)),
+		SequenceID: &realData.Block.Height,
+	}
+	u := w.endpoint
+	ru, err := url.Parse(u)
+	vals := url.Values{}
+	newHeight := realData.Block.Header.Height
+	vals.Set("height", strconv.FormatInt(newHeight, 10))
+
+	w.l.Debugw("asking for block", "height", newHeight)
+
+	ru.Path = "block_results"
+	ru.RawQuery = vals.Encode()
+
+	res := bytes.Buffer{}
+
+	resp, err := http.Get(ru.String())
+	spew.Dump(resp.Body)
+	read, err := res.ReadFrom(resp.Body)
+	spew.Dump(ru.String())
+	spew.Dump(read)
+	if err != nil {
+		w.l.Errorw("cannot query node for block data", "error", err, "height", newHeight)
+		return
+	}
+	if err != nil {
+		w.l.Errorw("cannot parse url", "url_string", u, "error", err)
+		return
+	}
+	producer.SendMessage(w.producers[data.Query], w.l, message)
 
 }

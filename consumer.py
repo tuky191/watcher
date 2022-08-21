@@ -3,7 +3,7 @@ from pulsar import InitialPosition
 import pulsar
 import pprint
 client = pulsar.Client('pulsar://localhost:6650')
-consumer = client.subscribe(topic=["persistent://terra/localterra/ws/tm.event='NewBlock'", "persistent://terra/localterra/ws/tm.event='Tx'"],
+consumer = client.subscribe(topic=["persistent://terra/localterra/tm.event='NewBlock'", "persistent://terra/localterra/tm.event='Tx'"],
                             subscription_name='my-subscription', initial_position=InitialPosition.Latest)
 while True:
     msg = consumer.receive()
