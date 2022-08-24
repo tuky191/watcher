@@ -18,6 +18,7 @@ type Config struct {
 	RpcURL             string `validate:"required"`
 	ProfilingServerURL string `validate:"hostname_port"`
 	ApiURL             string `validate:"required"`
+	PrestoURI          string `validate:"required"`
 	Debug              bool
 	JSONLogs           bool
 }

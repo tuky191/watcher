@@ -7,11 +7,13 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/prestodb/presto-go-client/presto"
 	"go.uber.org/zap"
 
 	"rpc_watcher/rpcwatcher"
 
 	_ "net/http/pprof"
+	"rpc_watcher/rpcwatcher/database"
 	"rpc_watcher/rpcwatcher/logging"
 
 	cnsmodels "github.com/emerishq/demeris-backend-models/cns"
@@ -73,7 +75,13 @@ func main() {
 		spew.Dump(err)
 		panic(err)
 	}
-	watcher, cancel := startNewWatcher(chain.ChainName, c, l, false)
+	db_config := &presto.Config{
+		PrestoURI:         c.PrestoURI,
+		SessionProperties: map[string]string{"catalog": "terra", "schema": chain.ChainName},
+	}
+	db, err := database.New(db_config)
+
+	watcher, cancel := startNewWatcher(chain.ChainName, c, l, db, false)
 	watchers[chain.ChainName] = watcherInstance{
 		watcher: watcher,
 		cancel:  cancel,
@@ -85,7 +93,7 @@ func main() {
 }
 
 func startNewWatcher(chainName string, config *rpcwatcher.Config,
-	l *zap.SugaredLogger, isNewChain bool) (*rpcwatcher.Watcher, context.CancelFunc) {
+	l *zap.SugaredLogger, db *database.Instance, isNewChain bool) (*rpcwatcher.Watcher, context.CancelFunc) {
 	eventMappings := rpcwatcher.StandardMappings
 
 	/*
@@ -105,7 +113,7 @@ func startNewWatcher(chainName string, config *rpcwatcher.Config,
 
 	grpcEndpoint := fmt.Sprintf("%s:%d", "127.0.0.1", grpcPort)
 
-	watcher, err := rpcwatcher.NewWatcher(config.RpcURL, chainName, l, config.ApiURL, grpcEndpoint, rpcwatcher.EventsToSubTo, eventMappings, config)
+	watcher, err := rpcwatcher.NewWatcher(config.RpcURL, chainName, l, config.ApiURL, grpcEndpoint, rpcwatcher.EventsToSubTo, eventMappings, config, db)
 	if err != nil {
 		l.Errorw("cannot create chain", "error", err)
 		return nil, nil
