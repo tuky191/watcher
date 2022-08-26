@@ -15,6 +15,7 @@ import (
 	_ "net/http/pprof"
 	"rpc_watcher/rpcwatcher/database"
 	"rpc_watcher/rpcwatcher/logging"
+	"rpc_watcher/rpcwatcher/sync"
 
 	cnsmodels "github.com/emerishq/demeris-backend-models/cns"
 )
@@ -80,12 +81,25 @@ func main() {
 		SessionProperties: map[string]string{"catalog": "terra", "schema": chain.ChainName},
 	}
 	db, err := database.New(db_config)
+	if err != nil {
+		l.Errorw("Unable to create presto db handle", "error", err)
+	}
+
+	//spew.Dump(l)
+	//sync_instance := sync.NewSync("de")
 
 	watcher, cancel := startNewWatcher(chain.ChainName, c, l, db, false)
 	watchers[chain.ChainName] = watcherInstance{
 		watcher: watcher,
 		cancel:  cancel,
 	}
+
+	sync_instance := sync.New(endpoint(chain.ChainName), l)
+	_, err = sync.GetBlock(1, sync_instance)
+	if err != nil {
+		l.Errorw("Unable to get block", "url_string", "error", err)
+	}
+
 	for range time.Tick(1 * time.Second) {
 		continue
 	}

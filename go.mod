@@ -12,7 +12,7 @@ replace (
 require (
 	github.com/alicebob/miniredis/v2 v2.18.0
 	github.com/cockroachdb/cockroach-go/v2 v2.2.8
-	github.com/cosmos/cosmos-sdk v0.42.8
+	github.com/cosmos/cosmos-sdk v0.45.4
 	github.com/cosmos/gaia/v5 v5.0.4
 	github.com/emerishq/demeris-backend-models v1.5.0
 	github.com/gin-gonic/gin v1.7.7
@@ -27,7 +27,7 @@ require (
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/r3labs/diff v1.1.0
 	github.com/spf13/viper v1.12.0
-	github.com/tendermint/tendermint v0.34.11
+	github.com/tendermint/tendermint v0.34.19
 	go.uber.org/zap v1.21.0
 	google.golang.org/grpc v1.48.0
 )
@@ -53,7 +53,7 @@ require (
 	github.com/confio/ics23/go v0.7.0 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gorocksdb v1.2.0 // indirect
-	github.com/cosmos/iavl v0.16.0 // indirect
+	github.com/cosmos/iavl v0.17.3 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.11.1 // indirect
 	github.com/cosmos/ledger-go v0.9.2 // indirect
 	github.com/danieljoos/wincred v1.1.2 // indirect
@@ -156,6 +156,7 @@ require (
 	github.com/tendermint/crypto v0.0.0-20191022145703-50d29ede1e15 // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
 	github.com/tendermint/tm-db v0.6.7 // indirect
+	github.com/terra-money/mantlemint v0.1.6
 	github.com/ugorji/go/codec v1.1.7 // indirect
 	github.com/yuin/gopher-lua v0.0.0-20210529063254-f4c35e4016d9 // indirect
 	github.com/zondax/hid v0.9.0 // indirect

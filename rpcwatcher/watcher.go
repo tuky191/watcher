@@ -1,28 +1,24 @@
 package rpcwatcher
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/url"
 	"rpc_watcher/rpcwatcher/database"
 	producer "rpc_watcher/rpcwatcher/pulsar"
-	"strconv"
 	"time"
 
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/davecgh/go-spew/spew"
 	tmjson "github.com/tendermint/tendermint/libs/json"
-	coretypes "github.com/tendermint/tendermint/rpc/core/types"
-	"github.com/tendermint/tendermint/rpc/jsonrpc/client"
 	"github.com/tendermint/tendermint/types"
+
+	coretypes "github.com/tendermint/tendermint/rpc/core/types"
+	block_feed "github.com/terra-money/mantlemint/block_feed"
+
+	"github.com/tendermint/tendermint/rpc/jsonrpc/client"
 	"go.uber.org/zap"
 )
-
-const ackSuccess = "AQ==" // Packet ack value is true when ibc is success and contains error message in all other cases
-const nonZeroCodeErrFmt = "non-zero code on chain %s: %s"
 
 const (
 	EventsTx                = "tm.event='Tx'"
@@ -412,9 +408,19 @@ func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 	w.watchdog.Ping()
 	w.l.Debugw("performed watchdog ping", "chain_name", w.Name)
 	w.l.Debugw("new block", "chain_name", w.Name)
-
+	//fmt.Printf("%s", data.Data)
 	realData, ok := data.Data.(types.EventDataNewBlock)
-	//spew.Dump(realData)
+
+	var blockID = types.BlockID{
+		Hash:          realData.Block.Hash(),
+		PartSetHeader: realData.Block.MakePartSet(types.BlockPartSizeBytes).Header(),
+	}
+	var BlockResults = block_feed.BlockResult{
+		BlockID: &blockID,
+		Block:   realData.Block,
+	}
+	spew.Dump(BlockResults)
+	//spew.Dump(realData.Block)
 	if !ok {
 		panic("rpc returned block data which is not of expected type")
 	}
@@ -422,7 +428,7 @@ func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 	if realData.Block == nil {
 		w.l.Warnw("weird block received on rpc, it was empty while it shouldn't", "chain_name", w.Name)
 	}
-	b, err := json.Marshal(realData)
+	b, err := json.Marshal(realData.Block)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -431,32 +437,7 @@ func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 		Payload:    []byte(string(b)),
 		SequenceID: &realData.Block.Height,
 	}
-	u := w.endpoint
-	ru, err := url.Parse(u)
-	vals := url.Values{}
-	newHeight := realData.Block.Header.Height
-	vals.Set("height", strconv.FormatInt(newHeight, 10))
 
-	w.l.Debugw("asking for block", "height", newHeight)
-
-	ru.Path = "block_results"
-	ru.RawQuery = vals.Encode()
-
-	res := bytes.Buffer{}
-
-	resp, err := http.Get(ru.String())
-	spew.Dump(resp.Body)
-	read, err := res.ReadFrom(resp.Body)
-	spew.Dump(ru.String())
-	spew.Dump(read)
-	if err != nil {
-		w.l.Errorw("cannot query node for block data", "error", err, "height", newHeight)
-		return
-	}
-	if err != nil {
-		w.l.Errorw("cannot parse url", "url_string", u, "error", err)
-		return
-	}
 	producer.SendMessage(w.producers[data.Query], w.l, message)
 
 }
