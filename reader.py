@@ -6,9 +6,9 @@ import re
 client = pulsar.Client('pulsar://localhost:6650')
 msg_id = pulsar.MessageId.earliest
 reader_block = client.create_reader(
-    topic="persistent://terra/localterra/ws/tm.event='NewBlock'", start_message_id=msg_id)
+    topic="persistent://terra/localterra/tm.event='NewBlock'", start_message_id=msg_id)
 reader_tx = client.create_reader(
-    topic="persistent://terra/localterra/ws/tm.event='Tx'", start_message_id=msg_id)
+    topic="persistent://terra/localterra/tm.event='Tx'", start_message_id=msg_id)
 while True:
     msg = reader_block.read_next()
     print("Received NewBlock message '{}' id='{}'".format(

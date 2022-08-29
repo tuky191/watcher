@@ -78,13 +78,6 @@ func GetBlock(height int64, s *Instance) (*ctypes.ResultEvent, error) {
 		s.logger.Errorw("failed to unmarshal response", "err", err)
 
 	}
-	//spew.Dump(result.Data)
-
-	//spew.Dump(read)
-	//realData, _ := result.Data.(types.EventDataNewBlock)
-	//spew.Dump(realData.Block)
-	//newHeight := realData.Block.Header.Height
-	//spew.Dump(newHeight)
 
 	if resp.StatusCode != http.StatusOK {
 		s.logger.Errorw("endpoint returned non-200 code", "code", resp.StatusCode, "height", height)

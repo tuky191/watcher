@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"rpc_watcher/rpcwatcher/database"
 	producer "rpc_watcher/rpcwatcher/pulsar"
+	"strconv"
 	"time"
 
 	"github.com/apache/pulsar-client-go/pulsar"
@@ -16,6 +18,7 @@ import (
 	coretypes "github.com/tendermint/tendermint/rpc/core/types"
 	block_feed "github.com/terra-money/mantlemint/block_feed"
 
+	"github.com/danielgtaylor/huma/schema"
 	"github.com/tendermint/tendermint/rpc/jsonrpc/client"
 	"go.uber.org/zap"
 )
@@ -94,7 +97,21 @@ func NewWatcher(
 	}
 	producers := map[string]producer.Instance{}
 	for _, eventKind := range subscriptions {
+		//schema := jsonschema.Reflect(&block_feed.BlockResult{})
+		//spew.Dump(schema)
+		s, err := schema.Generate(reflect.TypeOf(&block_feed.BlockResult{}))
+		b, err := json.MarshalIndent(s, "", "  ")
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(string(b))
 
+		//fmt.Println(schema.)
+		//fmt.Println(string(b))
+		//properties := make(map[string]string)
+		//properties["pulsar"] = "hello"
+		//pulsar_schema := pulsar.NewJSONSchema(string(b), properties)
+		//spew.Dump(pulsar_schema)
 		o := producer.Options{
 			ClientOptions: pulsar.ClientOptions{
 				URL:               config.PulsarURL,
@@ -408,19 +425,17 @@ func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 	w.watchdog.Ping()
 	w.l.Debugw("performed watchdog ping", "chain_name", w.Name)
 	w.l.Debugw("new block", "chain_name", w.Name)
-	//fmt.Printf("%s", data.Data)
 	realData, ok := data.Data.(types.EventDataNewBlock)
 
-	var blockID = types.BlockID{
+	blockID := types.BlockID{
 		Hash:          realData.Block.Hash(),
 		PartSetHeader: realData.Block.MakePartSet(types.BlockPartSizeBytes).Header(),
 	}
-	var BlockResults = block_feed.BlockResult{
+	BlockResults := block_feed.BlockResult{
 		BlockID: &blockID,
 		Block:   realData.Block,
 	}
-	spew.Dump(BlockResults)
-	//spew.Dump(realData.Block)
+
 	if !ok {
 		panic("rpc returned block data which is not of expected type")
 	}
@@ -428,16 +443,14 @@ func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 	if realData.Block == nil {
 		w.l.Warnw("weird block received on rpc, it was empty while it shouldn't", "chain_name", w.Name)
 	}
-	b, err := json.Marshal(realData.Block)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	message := pulsar.ProducerMessage{
-		Payload:    []byte(string(b)),
-		SequenceID: &realData.Block.Height,
-	}
 
+	message := pulsar.ProducerMessage{
+		Value:       BlockResults,
+		SequenceID:  &realData.Block.Height,
+		OrderingKey: strconv.FormatInt(realData.Block.Height, 10),
+		EventTime:   BlockResults.Block.Time,
+	}
+	spew.Dump(message)
 	producer.SendMessage(w.producers[data.Query], w.l, message)
 
 }
