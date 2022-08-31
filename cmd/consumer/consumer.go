@@ -8,7 +8,6 @@ import (
 	"rpc_watcher/rpcwatcher/avro"
 
 	"github.com/apache/pulsar-client-go/pulsar"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/terra-money/mantlemint/block_feed"
 )
 
@@ -62,10 +61,19 @@ func main() {
 
 	//InspectStruct(tendermint.Block{})
 	//log.Fatal()
-	avro_schema := avro.GenerateAvroSchema(block_feed.BlockResult{})
-	spew.Dump(avro_schema)
-	log.Fatal()
 
+	// r := new(jsonschema.Reflector)
+	// r.ExpandedStruct = true
+	// _ = r.Reflect(&block_feed.BlockResult{})
+
+	//b, err := json.MarshalIndent(schema, "", "  ")
+	//spew.Dump(schema)
+	//fmt.Printf("%s", b)
+	//log.Fatal()
+	avro_schema := avro.GenerateAvroSchema(&block_feed.BlockResult{})
+	fmt.Println(avro_schema)
+	//spew.Dump(avro_schema)
+	log.Fatal()
 	client, err := pulsar.NewClient(pulsar.ClientOptions{
 		URL: "pulsar://localhost:6650",
 	})

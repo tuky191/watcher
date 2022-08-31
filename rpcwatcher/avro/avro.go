@@ -1,6 +1,7 @@
 package avro
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -25,81 +26,92 @@ type AvroField struct {
 
 func GenerateAvroSchema(model interface{}) string {
 	fmt.Printf("%#v\n", model)
-	st, err := json.Marshal(getAvroRecords(model))
+	st, err := json.Marshal(getAvroRecords(reflect.TypeOf(model)))
+	var prettyJSON bytes.Buffer
+	error := json.Indent(&prettyJSON, st, "", "\t")
 	if err != nil {
 		log.Err(err).Msg("")
 		return ""
 	}
-	return string(st)
+	if error != nil {
+		log.Err(error).Msg("failed to parse json")
+	}
+	return prettyJSON.String()
 }
 
-func getAvroRecords(model interface{}) []AvroSchema {
+func getAvroRecords(model reflect.Type) []AvroSchema {
 
-	val := strctVal(model)
+	val := strctTyp(model)
 	spew.Dump(val)
-	v := val.Type()
 	record := AvroSchema{
 		Type:      "record",
-		Name:      v.Name(),
+		Name:      val.Name(),
 		Namespace: "some.namespace",
-		Fields:    getAvroFields(val.Interface()),
+		Fields:    getAvroFields(val),
 	}
 	AvroSchemas = append(AvroSchemas, record)
 	return AvroSchemas
 }
-func getAvroFields(model interface{}) []AvroField {
+func getAvroFields(model reflect.Type) []AvroField {
 	fields := make([]AvroField, 0, 10)
 
-	val := strctVal(model)
-	spew.Dump(val)
-	v := val.Type()
+	val := strctTyp(model)
+	//spew.Dump(val)
 
 	if val.Kind() != reflect.Struct {
 		field := AvroField{
-			Name: v.Name(),
+			Name: val.Name(),
 			Type: val.Kind().String(),
 		}
 		fields = append(fields, field)
 		return fields
 	}
 	for i := 0; i < val.NumField(); i++ {
-		t := v.Field(i)
+		t := val.Field(i)
 
-		if val.Field(i).Kind() == reflect.Struct || val.Field(i).Kind() == reflect.Ptr {
+		if val.Field(i).Type.Kind() == reflect.Struct || val.Field(i).Type.Kind() == reflect.Ptr {
 			field := AvroField{
 				Name: t.Name,
-				Type: val.Field(i).Kind().String(),
+				Type: val.Field(i).Type.Kind().String(),
 			}
 			fields = append(fields, field)
 			//Skip private/non exportable fields
-			if val.Field(i).CanInterface() {
-				_ = getAvroRecords(val.Field(i).Interface())
-			}
+			_ = getAvroRecords(val.Field(i).Type)
 			continue
 		}
 
 		field := AvroField{
 			Name: t.Name,
-			Type: val.Field(i).Kind().String(),
+			Type: val.Field(i).Type.Kind().String(),
 		}
 		fields = append(fields, field)
 	}
 	return fields
 }
 
-func strctVal(s interface{}) reflect.Value {
-	v := reflect.ValueOf(&s)
-	//spew.Dump(v)
-
+func strctTyp(s reflect.Type) reflect.Type {
+	if s.Kind() == reflect.Ptr {
+		s = s.Elem()
+		spew.Dump(s)
+	}
+	//spew.Dump(t)
 	//n := reflect.TypeOf(s).Elem().Name()
 	//fmt.Println(n)
 	// if pointer get the value
-	for v.Kind() == reflect.Ptr {
-		v = reflect.Indirect(reflect.ValueOf(s))
-		// spew.Dump(reflect.ValueOf(&s))
-		// spew.Dump(reflect.Indirect(reflect.ValueOf(&s)))
-		// spew.Dump(reflect.New(v.Type().Elem()))
+	for i := 0; i < s.NumField(); i++ {
+		f := s.Field(i)
+		spew.Dump(f)
 	}
 
-	return v
+	// for v.Kind() == reflect.Ptr {
+
+	// 	spew.Dump(v.Elem())
+
+	// 	v = reflect.Indirect(reflect.ValueOf(s))
+	// 	// spew.Dump(reflect.ValueOf(&s))
+	// 	// spew.Dump(reflect.Indirect(reflect.ValueOf(&s)))
+	// 	// spew.Dump(reflect.New(v.Type().Elem()))
+	// }
+
+	return s
 }
