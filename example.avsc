@@ -1,0 +1,389 @@
+{
+ "type": "record",
+ "name": "BlockResult",
+ "namespace": "some.namespace",
+ "fields": [
+  {
+   "name": "BlockID",
+   "type": {
+    "type": "record",
+    "name": "BlockID",
+    "namespace": "some.namespace",
+    "fields": [
+     {
+      "name": "Hash",
+      "type": "slice"
+     },
+     {
+      "name": "PartSetHeader",
+      "type": {
+       "type": "record",
+       "name": "PartSetHeader",
+       "namespace": "some.namespace",
+       "fields": [
+        {
+         "name": "Total",
+         "type": "uint32"
+        },
+        {
+         "name": "Hash",
+         "type": "slice"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "Block",
+   "type": {
+    "type": "record",
+    "name": "Block",
+    "namespace": "some.namespace",
+    "fields": [
+     {
+      "name": "mtx",
+      "type": {
+       "type": "record",
+       "name": "Mutex",
+       "namespace": "some.namespace",
+       "fields": [
+        {
+         "name": "Mutex",
+         "type": {
+          "type": "record",
+          "name": "Mutex",
+          "namespace": "some.namespace",
+          "fields": [
+           {
+            "name": "state",
+            "type": "int32"
+           },
+           {
+            "name": "sema",
+            "type": "uint32"
+           }
+          ]
+         }
+        }
+       ]
+      }
+     },
+     {
+      "name": "Header",
+      "type": {
+       "type": "record",
+       "name": "Header",
+       "namespace": "some.namespace",
+       "fields": [
+        {
+         "name": "Version",
+         "type": {
+          "type": "record",
+          "name": "Consensus",
+          "namespace": "some.namespace",
+          "fields": [
+           {
+            "name": "Block",
+            "type": "uint64"
+           },
+           {
+            "name": "App",
+            "type": "uint64"
+           }
+          ]
+         }
+        },
+        {
+         "name": "ChainID",
+         "type": "string"
+        },
+        {
+         "name": "Height",
+         "type": "int64"
+        },
+        {
+         "name": "Time",
+         "type": {
+          "type": "record",
+          "name": "Time",
+          "namespace": "some.namespace",
+          "fields": [
+           {
+            "name": "wall",
+            "type": "uint64"
+           },
+           {
+            "name": "ext",
+            "type": "int64"
+           },
+           {
+            "name": "loc",
+            "type": {
+             "type": "record",
+             "name": "Location",
+             "namespace": "some.namespace",
+             "fields": [
+              {
+               "name": "name",
+               "type": "string"
+              },
+              {
+               "name": "zone",
+               "type": "slice"
+              },
+              {
+               "name": "tx",
+               "type": "slice"
+              },
+              {
+               "name": "extend",
+               "type": "string"
+              },
+              {
+               "name": "cacheStart",
+               "type": "int64"
+              },
+              {
+               "name": "cacheEnd",
+               "type": "int64"
+              },
+              {
+               "name": "cacheZone",
+               "type": {
+                "type": "record",
+                "name": "zone",
+                "namespace": "some.namespace",
+                "fields": [
+                 {
+                  "name": "name",
+                  "type": "string"
+                 },
+                 {
+                  "name": "offset",
+                  "type": "int"
+                 },
+                 {
+                  "name": "isDST",
+                  "type": "bool"
+                 }
+                ]
+               }
+              }
+             ]
+            }
+           }
+          ]
+         }
+        },
+        {
+         "name": "LastBlockID",
+         "type": {
+          "type": "record",
+          "name": "BlockID",
+          "namespace": "some.namespace",
+          "fields": [
+           {
+            "name": "Hash",
+            "type": "slice"
+           },
+           {
+            "name": "PartSetHeader",
+            "type": {
+             "type": "record",
+             "name": "PartSetHeader",
+             "namespace": "some.namespace",
+             "fields": [
+              {
+               "name": "Total",
+               "type": "uint32"
+              },
+              {
+               "name": "Hash",
+               "type": "slice"
+              }
+             ]
+            }
+           }
+          ]
+         }
+        },
+        {
+         "name": "LastCommitHash",
+         "type": "slice"
+        },
+        {
+         "name": "DataHash",
+         "type": "slice"
+        },
+        {
+         "name": "ValidatorsHash",
+         "type": "slice"
+        },
+        {
+         "name": "NextValidatorsHash",
+         "type": "slice"
+        },
+        {
+         "name": "ConsensusHash",
+         "type": "slice"
+        },
+        {
+         "name": "AppHash",
+         "type": "slice"
+        },
+        {
+         "name": "LastResultsHash",
+         "type": "slice"
+        },
+        {
+         "name": "EvidenceHash",
+         "type": "slice"
+        },
+        {
+         "name": "ProposerAddress",
+         "type": "slice"
+        }
+       ]
+      }
+     },
+     {
+      "name": "Data",
+      "type": {
+       "type": "record",
+       "name": "Data",
+       "namespace": "some.namespace",
+       "fields": [
+        {
+         "name": "Txs",
+         "type": "slice"
+        },
+        {
+         "name": "hash",
+         "type": "slice"
+        }
+       ]
+      }
+     },
+     {
+      "name": "Evidence",
+      "type": {
+       "type": "record",
+       "name": "EvidenceData",
+       "namespace": "some.namespace",
+       "fields": [
+        {
+         "name": "Evidence",
+         "type": "slice"
+        },
+        {
+         "name": "hash",
+         "type": "slice"
+        },
+        {
+         "name": "byteSize",
+         "type": "int64"
+        }
+       ]
+      }
+     },
+     {
+      "name": "LastCommit",
+      "type": {
+       "type": "record",
+       "name": "Commit",
+       "namespace": "some.namespace",
+       "fields": [
+        {
+         "name": "Height",
+         "type": "int64"
+        },
+        {
+         "name": "Round",
+         "type": "int32"
+        },
+        {
+         "name": "BlockID",
+         "type": {
+          "type": "record",
+          "name": "BlockID",
+          "namespace": "some.namespace",
+          "fields": [
+           {
+            "name": "Hash",
+            "type": "slice"
+           },
+           {
+            "name": "PartSetHeader",
+            "type": {
+             "type": "record",
+             "name": "PartSetHeader",
+             "namespace": "some.namespace",
+             "fields": [
+              {
+               "name": "Total",
+               "type": "uint32"
+              },
+              {
+               "name": "Hash",
+               "type": "slice"
+              }
+             ]
+            }
+           }
+          ]
+         }
+        },
+        {
+         "name": "Signatures",
+         "type": "slice"
+        },
+        {
+         "name": "hash",
+         "type": "slice"
+        },
+        {
+         "name": "bitArray",
+         "type": {
+          "type": "record",
+          "name": "BitArray",
+          "namespace": "some.namespace",
+          "fields": [
+           {
+            "name": "mtx",
+            "type": {
+             "type": "record",
+             "name": "Mutex",
+             "namespace": "some.namespace",
+             "fields": [
+              {
+               "name": "state",
+               "type": "int32"
+              },
+              {
+               "name": "sema",
+               "type": "uint32"
+              }
+             ]
+            }
+           },
+           {
+            "name": "Bits",
+            "type": "int"
+           },
+           {
+            "name": "Elems",
+            "type": "slice"
+           }
+          ]
+         }
+        }
+       ]
+      }
+     }
+    ]
+   }
+  }
+ ]
+}
