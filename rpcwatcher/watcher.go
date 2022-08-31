@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"rpc_watcher/rpcwatcher/database"
 	producer "rpc_watcher/rpcwatcher/pulsar"
 	"strconv"
@@ -18,7 +17,7 @@ import (
 	coretypes "github.com/tendermint/tendermint/rpc/core/types"
 	block_feed "github.com/terra-money/mantlemint/block_feed"
 
-	"github.com/danielgtaylor/huma/schema"
+	"github.com/invopop/jsonschema"
 	"github.com/tendermint/tendermint/rpc/jsonrpc/client"
 	"go.uber.org/zap"
 )
@@ -97,15 +96,18 @@ func NewWatcher(
 	}
 	producers := map[string]producer.Instance{}
 	for _, eventKind := range subscriptions {
-		//schema := jsonschema.Reflect(&block_feed.BlockResult{})
-		//spew.Dump(schema)
-		s, err := schema.Generate(reflect.TypeOf(&block_feed.BlockResult{}))
-		b, err := json.MarshalIndent(s, "", "  ")
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println(string(b))
-
+		schema := jsonschema.Reflect(&block_feed.BlockResult{})
+		spew.Dump(schema)
+		//avro_schema := avro.GenerateAvroSchema(block_feed.BlockResult{})
+		//spew.Dump(avro_schema)
+		/*
+			s, err := schema.Generate(reflect.TypeOf(&block_feed.BlockResult{}))
+			b, err := json.MarshalIndent(s, "", "  ")
+			if err != nil {
+				panic(err)
+			}
+			fmt.Println(string(b))
+		*/
 		//fmt.Println(schema.)
 		//fmt.Println(string(b))
 		//properties := make(map[string]string)
@@ -435,7 +437,9 @@ func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 		BlockID: &blockID,
 		Block:   realData.Block,
 	}
-
+	b, err := json.Marshal(BlockResults)
+	if err != nil {
+	}
 	if !ok {
 		panic("rpc returned block data which is not of expected type")
 	}
@@ -445,7 +449,8 @@ func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 	}
 
 	message := pulsar.ProducerMessage{
-		Value:       BlockResults,
+		//	Value:       BlockResults,
+		Payload:     []byte(string(b)),
 		SequenceID:  &realData.Block.Height,
 		OrderingKey: strconv.FormatInt(realData.Block.Height, 10),
 		EventTime:   BlockResults.Block.Time,

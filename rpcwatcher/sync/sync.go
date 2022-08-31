@@ -3,11 +3,12 @@ package sync
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
+	"rpc_watcher/rpcwatcher/avro"
 	"strconv"
 
-	"github.com/davecgh/go-spew/spew"
 	tmjson "github.com/tendermint/tendermint/libs/json"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	typesjson "github.com/tendermint/tendermint/rpc/jsonrpc/types"
@@ -62,8 +63,12 @@ func GetBlock(height int64, s *Instance) (*ctypes.ResultEvent, error) {
 	}
 
 	block_results, err := block_feed.ExtractBlockFromRPCResponse(body)
-	spew.Dump(block_results)
-
+	//spew.Dump(block_results)
+	//out, err := json.Marshal(block_results)
+	//fmt.Printf("%s", out)
+	avro_schema := avro.GenerateAvroSchema(block_results)
+	fmt.Println(avro_schema)
+	log.Fatal()
 	rpc_response := new(typesjson.RPCResponse)
 	err = tmjson.Unmarshal(body, rpc_response)
 
