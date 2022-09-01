@@ -1,33 +1,30 @@
 {
  "type": "record",
  "name": "BlockResult",
- "namespace": "some.namespace",
  "fields": [
   {
    "name": "BlockID",
    "type": {
     "type": "record",
     "name": "BlockID",
-    "namespace": "some.namespace",
     "fields": [
      {
       "name": "Hash",
-      "type": "slice"
+      "type": "bytes"
      },
      {
       "name": "PartSetHeader",
       "type": {
        "type": "record",
        "name": "PartSetHeader",
-       "namespace": "some.namespace",
        "fields": [
         {
          "name": "Total",
-         "type": "uint32"
+         "type": "int"
         },
         {
          "name": "Hash",
-         "type": "slice"
+         "type": "bytes"
         }
        ]
       }
@@ -40,29 +37,26 @@
    "type": {
     "type": "record",
     "name": "Block",
-    "namespace": "some.namespace",
     "fields": [
      {
       "name": "mtx",
       "type": {
        "type": "record",
        "name": "Mutex",
-       "namespace": "some.namespace",
        "fields": [
         {
          "name": "Mutex",
          "type": {
           "type": "record",
           "name": "Mutex",
-          "namespace": "some.namespace",
           "fields": [
            {
             "name": "state",
-            "type": "int32"
+            "type": "int"
            },
            {
             "name": "sema",
-            "type": "uint32"
+            "type": "int"
            }
           ]
          }
@@ -75,22 +69,20 @@
       "type": {
        "type": "record",
        "name": "Header",
-       "namespace": "some.namespace",
        "fields": [
         {
          "name": "Version",
          "type": {
           "type": "record",
           "name": "Consensus",
-          "namespace": "some.namespace",
           "fields": [
            {
             "name": "Block",
-            "type": "uint64"
+            "type": "long"
            },
            {
             "name": "App",
-            "type": "uint64"
+            "type": "long"
            }
           ]
          }
@@ -101,29 +93,27 @@
         },
         {
          "name": "Height",
-         "type": "int64"
+         "type": "long"
         },
         {
          "name": "Time",
          "type": {
           "type": "record",
           "name": "Time",
-          "namespace": "some.namespace",
           "fields": [
            {
             "name": "wall",
-            "type": "uint64"
+            "type": "long"
            },
            {
             "name": "ext",
-            "type": "int64"
+            "type": "long"
            },
            {
             "name": "loc",
             "type": {
              "type": "record",
              "name": "Location",
-             "namespace": "some.namespace",
              "fields": [
               {
                "name": "name",
@@ -131,11 +121,11 @@
               },
               {
                "name": "zone",
-               "type": "slice"
+               "type": "bytes"
               },
               {
                "name": "tx",
-               "type": "slice"
+               "type": "bytes"
               },
               {
                "name": "extend",
@@ -143,18 +133,17 @@
               },
               {
                "name": "cacheStart",
-               "type": "int64"
+               "type": "long"
               },
               {
                "name": "cacheEnd",
-               "type": "int64"
+               "type": "long"
               },
               {
                "name": "cacheZone",
                "type": {
                 "type": "record",
                 "name": "zone",
-                "namespace": "some.namespace",
                 "fields": [
                  {
                   "name": "name",
@@ -166,7 +155,7 @@
                  },
                  {
                   "name": "isDST",
-                  "type": "bool"
+                  "type": "boolean"
                  }
                 ]
                }
@@ -182,26 +171,24 @@
          "type": {
           "type": "record",
           "name": "BlockID",
-          "namespace": "some.namespace",
           "fields": [
            {
             "name": "Hash",
-            "type": "slice"
+            "type": "bytes"
            },
            {
             "name": "PartSetHeader",
             "type": {
              "type": "record",
              "name": "PartSetHeader",
-             "namespace": "some.namespace",
              "fields": [
               {
                "name": "Total",
-               "type": "uint32"
+               "type": "int"
               },
               {
                "name": "Hash",
-               "type": "slice"
+               "type": "bytes"
               }
              ]
             }
@@ -211,39 +198,39 @@
         },
         {
          "name": "LastCommitHash",
-         "type": "slice"
+         "type": "bytes"
         },
         {
          "name": "DataHash",
-         "type": "slice"
+         "type": "bytes"
         },
         {
          "name": "ValidatorsHash",
-         "type": "slice"
+         "type": "bytes"
         },
         {
          "name": "NextValidatorsHash",
-         "type": "slice"
+         "type": "bytes"
         },
         {
          "name": "ConsensusHash",
-         "type": "slice"
+         "type": "bytes"
         },
         {
          "name": "AppHash",
-         "type": "slice"
+         "type": "bytes"
         },
         {
          "name": "LastResultsHash",
-         "type": "slice"
+         "type": "bytes"
         },
         {
          "name": "EvidenceHash",
-         "type": "slice"
+         "type": "bytes"
         },
         {
          "name": "ProposerAddress",
-         "type": "slice"
+         "type": "bytes"
         }
        ]
       }
@@ -253,15 +240,14 @@
       "type": {
        "type": "record",
        "name": "Data",
-       "namespace": "some.namespace",
        "fields": [
         {
          "name": "Txs",
-         "type": "slice"
+         "type": "bytes"
         },
         {
          "name": "hash",
-         "type": "slice"
+         "type": "bytes"
         }
        ]
       }
@@ -271,19 +257,18 @@
       "type": {
        "type": "record",
        "name": "EvidenceData",
-       "namespace": "some.namespace",
        "fields": [
         {
          "name": "Evidence",
-         "type": "slice"
+         "type": "bytes"
         },
         {
          "name": "hash",
-         "type": "slice"
+         "type": "bytes"
         },
         {
          "name": "byteSize",
-         "type": "int64"
+         "type": "long"
         }
        ]
       }
@@ -293,41 +278,38 @@
       "type": {
        "type": "record",
        "name": "Commit",
-       "namespace": "some.namespace",
        "fields": [
         {
          "name": "Height",
-         "type": "int64"
+         "type": "long"
         },
         {
          "name": "Round",
-         "type": "int32"
+         "type": "int"
         },
         {
          "name": "BlockID",
          "type": {
           "type": "record",
           "name": "BlockID",
-          "namespace": "some.namespace",
           "fields": [
            {
             "name": "Hash",
-            "type": "slice"
+            "type": "bytes"
            },
            {
             "name": "PartSetHeader",
             "type": {
              "type": "record",
              "name": "PartSetHeader",
-             "namespace": "some.namespace",
              "fields": [
               {
                "name": "Total",
-               "type": "uint32"
+               "type": "int"
               },
               {
                "name": "Hash",
-               "type": "slice"
+               "type": "bytes"
               }
              ]
             }
@@ -337,33 +319,31 @@
         },
         {
          "name": "Signatures",
-         "type": "slice"
+         "type": "bytes"
         },
         {
          "name": "hash",
-         "type": "slice"
+         "type": "bytes"
         },
         {
          "name": "bitArray",
          "type": {
           "type": "record",
           "name": "BitArray",
-          "namespace": "some.namespace",
           "fields": [
            {
             "name": "mtx",
             "type": {
              "type": "record",
              "name": "Mutex",
-             "namespace": "some.namespace",
              "fields": [
               {
                "name": "state",
-               "type": "int32"
+               "type": "int"
               },
               {
                "name": "sema",
-               "type": "uint32"
+               "type": "int"
               }
              ]
             }
@@ -374,7 +354,7 @@
            },
            {
             "name": "Elems",
-            "type": "slice"
+            "type": "bytes"
            }
           ]
          }
