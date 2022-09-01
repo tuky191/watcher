@@ -13,7 +13,7 @@ var AvroSchemas []AvroSchema
 type AvroSchema struct {
 	Type      string      `json:"type"`
 	Name      string      `json:"name"`
-	Namespace string      `json:"namespace,omitempty"`
+	Namespace string      `json:"namespace"`
 	Fields    []AvroField `json:"fields,omitempty"`
 	Values    []AvroField `json:"values,omitempty"`
 	Items     []AvroField `json:"items,omitempty"`
@@ -25,7 +25,7 @@ type AvroField struct {
 }
 
 func GenerateAvroSchema(model interface{}) string {
-	record := getAvroRecords(reflect.TypeOf(model))
+	record := getAvroRecords(reflect.TypeOf(model), reflect.TypeOf(model).Name())
 	st, err := json.Marshal(record)
 	var prettyJSON bytes.Buffer
 	error := json.Indent(&prettyJSON, st, "", " ")
@@ -39,56 +39,70 @@ func GenerateAvroSchema(model interface{}) string {
 	return prettyJSON.String()
 }
 
-func getAvroRecords(model reflect.Type) AvroSchema {
+func getAvroRecords(model reflect.Type, namespace string) AvroSchema {
 	val := strctTyp(model)
+	switch namespace {
+	case "":
+		namespace = val.Name()
+	default:
+		namespace = namespace + "." + val.Name()
+	}
 
+	fields := getAvroFields(val, namespace)
 	record := AvroSchema{
-		Type:      "record",
+		Type: "record",
+		//Name:      model.String(),
 		Name:      val.Name(),
-		Namespace: "some.namespace",
-		Fields:    getAvroFields(val),
+		Namespace: namespace,
+		Fields:    fields,
 	}
 
 	return record
 }
-func getAvroMaps(model reflect.Type) AvroSchema {
+func getAvroMaps(model reflect.Type, namespace string) AvroSchema {
 	val := strctTyp(model)
+	namespace = namespace + "." + val.Name()
 
+	fields := getAvroFields(val, namespace)
 	record := AvroSchema{
-		Type:   "map",
-		Name:   val.Name(),
-		Values: getAvroFields(val),
+		Type:      "map",
+		Name:      model.String(),
+		Namespace: namespace + "." + val.Name(),
+		Values:    fields,
 	}
 
 	return record
 }
-func getAvroArrays(model reflect.Type) AvroSchema {
+func getAvroArrays(model reflect.Type, namespace string) AvroSchema {
 	val := strctTyp(model)
+	namespace = namespace + "." + val.Name()
 
+	fields := getAvroFields(val, namespace)
 	record := AvroSchema{
-		Type:  "array",
-		Name:  val.Name(),
-		Items: getAvroFields(val),
+		Type:      "array",
+		Name:      model.String(),
+		Namespace: namespace + "." + val.Name(),
+		Items:     fields,
 	}
 
 	return record
 }
 
-func getAvroFields(model reflect.Type) []AvroField {
+func getAvroFields(model reflect.Type, namespace string) []AvroField {
 	fields := make([]AvroField, 0, 10)
-
 	val := strctTyp(model)
+	//spew.Dump(val)
 	var typ interface{}
 	for i := 0; i < val.NumField(); i++ {
 		t := val.Field(i)
 		switch t.Type.Kind() {
 
 		case reflect.Struct, reflect.Ptr:
-			typ = getAvroRecords(t.Type)
+			typ = getAvroRecords(t.Type, namespace)
 		case reflect.Array:
-			typ = getAvroArrays(t.Type)
+			typ = getAvroArrays(t.Type, namespace)
 		case reflect.Map:
-			typ = getAvroMaps(t.Type)
+			typ = getAvroMaps(t.Type, namespace)
 		case reflect.Float32:
 			typ = "float"
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
@@ -115,6 +129,7 @@ func getAvroFields(model reflect.Type) []AvroField {
 		}
 		fields = append(fields, field)
 	}
+
 	return fields
 }
 

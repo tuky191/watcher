@@ -100,7 +100,7 @@ func NewWatcher(
 		schema := avro.GenerateAvroSchema(&block_feed.BlockResult{})
 		properties := make(map[string]string)
 		jsonSchemaWithProperties := pulsar.NewJSONSchema(schema, properties)
-		spew.Dump(jsonSchemaWithProperties.Validate)
+		spew.Dump(jsonSchemaWithProperties)
 		o := producer.Options{
 			ClientOptions: pulsar.ClientOptions{
 				URL:               config.PulsarURL,
@@ -436,7 +436,7 @@ func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 	}
 
 	message := pulsar.ProducerMessage{
-		Value: BlockResults,
+		Value: &BlockResults,
 		//Payload:     []byte(string(b)),
 		SequenceID:  &realData.Block.Height,
 		OrderingKey: strconv.FormatInt(realData.Block.Height, 10),
