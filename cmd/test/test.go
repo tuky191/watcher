@@ -35,6 +35,9 @@ func main() {
 		Debug: true,
 		JSON:  true,
 	})
+	schema := avro.GenerateAvroSchema(&block_feed.BlockResult{})
+	spew.Dump(schema)
+	log.Fatal()
 	sync_instance := sync.New("http://127.0.0.1:26657", l)
 	block, err := sync.GetBlock(1, sync_instance)
 	if err != nil {
@@ -44,7 +47,7 @@ func main() {
 	//log.Fatal()
 	//#####################################################################################################
 	b := &block_feed.BlockResult{}
-	schema := avro.GenerateAvroSchema(&block_feed.BlockResult{})
+
 	properties := make(map[string]string)
 	properties["pulsar"] = "EHLO"
 	jsonSchemaWithProperties := pulsar.NewJSONSchema(schema, properties)

@@ -35,91 +35,67 @@ func GenerateAvroSchema(model interface{}) string {
 
 func getAvroRecords(model reflect.Type, namespace string) AvroSchema {
 	val := strctTyp(model)
+
+	record := AvroSchema{
+		Type: "record",
+		//Name: model.String(),
+		Name:      val.Name(),
+		Namespace: namespace,
+	}
 	switch namespace {
 	case "":
 		namespace = val.Name()
 	default:
 		namespace = namespace + "." + val.Name()
 	}
-
 	fields := getAvroFields(val, namespace)
-	record := AvroSchema{
-		Type: "record",
-		//Name:      model.String(),
-		Name:      val.Name(),
-		Namespace: namespace,
-		Fields:    fields,
-	}
 
-	return record
-}
-func getAvroMaps(model reflect.Type, namespace string) AvroSchema {
-	val := strctTyp(model)
-	namespace = namespace + "." + val.Name()
-
-	fields := getAvroFields(val, namespace)
-	record := AvroSchema{
-		Type:      "map",
-		Name:      model.String(),
-		Namespace: namespace + "." + val.Name(),
-		Values:    fields,
-	}
-
-	return record
-}
-func getAvroArrays(model reflect.Type, namespace string) AvroSchema {
-	val := strctTyp(model)
-	namespace = namespace + "." + val.Name()
-
-	fields := getAvroFields(val, namespace)
-	record := AvroSchema{
-		Type:      "array",
-		Name:      model.String(),
-		Namespace: namespace + "." + val.Name(),
-		Items:     fields,
+	switch model.Kind() {
+	case reflect.Struct, reflect.Ptr:
+		record.Fields = fields
+	case reflect.Array:
+		record.Items = fields
+	case reflect.Map:
+		record.Values = fields
 	}
 
 	return record
 }
 
 func getAvroFields(model reflect.Type, namespace string) []AvroField {
-	fields := make([]AvroField, 0, 10)
+	var fields []AvroField
+	var variable_type interface{}
+
 	val := strctTyp(model)
-	//spew.Dump(val)
-	var typ interface{}
 	for i := 0; i < val.NumField(); i++ {
 		t := val.Field(i)
 		switch t.Type.Kind() {
 
-		case reflect.Struct, reflect.Ptr:
-			typ = getAvroRecords(t.Type, namespace)
-		case reflect.Array:
-			typ = getAvroArrays(t.Type, namespace)
-		case reflect.Map:
-			typ = getAvroMaps(t.Type, namespace)
+		case reflect.Struct, reflect.Ptr, reflect.Array, reflect.Map:
+			variable_type = getAvroRecords(t.Type, namespace)
 		case reflect.Float32:
-			typ = "float"
+			variable_type = "float"
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
-			typ = "int"
+			variable_type = "int"
 		case reflect.Int64, reflect.Uint64:
-			typ = "long"
+			variable_type = "long"
 		case reflect.Float64:
-			typ = "double"
+			variable_type = "double"
 		case reflect.Slice:
-			typ = "bytes"
+			variable_type = "bytes"
 		case reflect.Interface:
 		case reflect.Bool:
-			typ = "boolean"
+			variable_type = "boolean"
 
 		case reflect.String:
-			typ = "string"
+			variable_type = "string"
 		default:
 			panic("unsupported type " + t.Type.String())
 		}
 
 		field := AvroField{
 			Name: t.Name,
-			Type: typ,
+			Type: variable_type,
 		}
 		fields = append(fields, field)
 	}
