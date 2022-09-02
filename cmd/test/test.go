@@ -14,20 +14,8 @@ import (
 	pulsar_logger "github.com/apache/pulsar-client-go/pulsar/log"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
+	"github.com/tendermint/tendermint/types"
 	block_feed "github.com/terra-money/mantlemint/block_feed"
-)
-
-type testJSON struct {
-	ID     int    `json:"id"`
-	Name   string `json:"name"`
-	Custom string `json:"custom"`
-}
-
-var (
-	exampleSchemaDef = "{\"type\":\"record\",\"name\":\"Example\",\"namespace\":\"test\"," +
-		"\"fields\":[{\"name\":\"ID\",\"type\":\"int\"},{\"name\":\"Name\",\"type\":\"string\"}]}"
-	protoSchemaDef = "{\"type\":\"record\",\"name\":\"Example\",\"namespace\":\"test\"," +
-		"\"fields\":[{\"name\":\"num\",\"type\":\"int\"},{\"name\":\"msf\",\"type\":\"string\"}]}"
 )
 
 func main() {
@@ -35,7 +23,9 @@ func main() {
 		Debug: true,
 		JSON:  true,
 	})
-	schema := avro.GenerateAvroSchema(&block_feed.BlockResult{})
+
+	//schema := avro.GenerateAvroSchema(&block_feed.BlockResult{})
+	schema := avro.GenerateAvroSchema(types.EventDataTx{})
 	spew.Dump(schema)
 	log.Fatal()
 	sync_instance := sync.New("http://127.0.0.1:26657", l)
@@ -43,27 +33,10 @@ func main() {
 	if err != nil {
 		l.Errorw("Unable to get block", "url_string", "error", err)
 	}
-	//spew.Dump(block)
-	//log.Fatal()
-	//#####################################################################################################
 	b := &block_feed.BlockResult{}
-
 	properties := make(map[string]string)
 	properties["pulsar"] = "EHLO"
 	jsonSchemaWithProperties := pulsar.NewJSONSchema(schema, properties)
-
-	// schemaPayload, err := jsonSchemaWithProperties.Encode(block)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	//spew.Dump(schemaPayload)
-	//err = jsonSchemaWithProperties.Decode(schemaPayload, b)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// fmt.Println("#########################################################")
-	// spew.Dump(b)
-	// fmt.Println("#########################################################")
 
 	logrus_logger := logrus.StandardLogger()
 	logrus_logger.SetLevel(logrus.InfoLevel)
@@ -76,7 +49,7 @@ func main() {
 		},
 		ProducerOptions: pulsar.ProducerOptions{Topic: "persistent://terra/localterra/tm.event='NewBlock'", Schema: jsonSchemaWithProperties},
 	}
-	//spew.Dump(o.ProducerOptions.Schema)
+
 	p, err := producer.New(&o)
 	if err != nil {
 		fmt.Printf("%s", err)
@@ -114,11 +87,12 @@ func main() {
 		log.Fatal(err)
 	}
 	err = msg.GetSchemaValue(&b)
-	//fmt.Println(s.ID)
-	spew.Dump(b.BlockID)
-	spew.Dump(b.Block)
-	fmt.Printf("Received message msgId: %#v\n",
-		msg.ID())
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Received message msgId: %#v\n with\n block id: %s block: %s",
+		msg.ID(), spew.Sdump(b.BlockID), spew.Sdump(b.Block))
+
 	consumer.Ack(msg)
 
 }

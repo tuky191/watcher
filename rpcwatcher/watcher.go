@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/apache/pulsar-client-go/pulsar"
-	"github.com/davecgh/go-spew/spew"
 	tmjson "github.com/tendermint/tendermint/libs/json"
 	"github.com/tendermint/tendermint/types"
 
@@ -34,6 +33,10 @@ const (
 
 var (
 	EventsToSubTo = []string{EventsTx, EventsBlock}
+	EventTypeMap  = map[string]interface{}{
+		EventsBlock: block_feed.BlockResult{},
+		EventsTx:    types.EventDataTx{},
+	}
 
 	StandardMappings = map[string][]DataHandler{
 		EventsTx: {
@@ -53,13 +56,12 @@ type WsResponse struct {
 
 type Events map[string][]string
 
-/*
-var (
-	aData = map[string]coretypes.ResultEvent{
-		"NewBlock": &types.EventDataNewBlock,
-		"Tx": types.EventDataTx,
-	}
-)*/
+// var (
+// 	aData = map[string]coretypes.ResultEvent{
+// 		"NewBlock": &types.EventDataNewBlock,
+// 		"Tx":       types.EventDataTx,
+// 	}
+// )
 
 type Watcher struct {
 	Name         string
@@ -97,10 +99,9 @@ func NewWatcher(
 	producers := map[string]producer.Instance{}
 	for _, eventKind := range subscriptions {
 
-		schema := avro.GenerateAvroSchema(&block_feed.BlockResult{})
+		schema := avro.GenerateAvroSchema(EventTypeMap[eventKind])
 		properties := make(map[string]string)
 		jsonSchemaWithProperties := pulsar.NewJSONSchema(schema, properties)
-		spew.Dump(jsonSchemaWithProperties)
 		o := producer.Options{
 			ClientOptions: pulsar.ClientOptions{
 				URL:               config.PulsarURL,

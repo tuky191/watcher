@@ -34,21 +34,20 @@ func GenerateAvroSchema(model interface{}) string {
 }
 
 func getAvroRecords(model reflect.Type, namespace string) AvroSchema {
-	val := strctTyp(model)
+	typ := strctTyp(model)
 
 	record := AvroSchema{
-		Type: "record",
-		//Name: model.String(),
-		Name:      val.Name(),
+		Type:      "record",
+		Name:      typ.Name(),
 		Namespace: namespace,
 	}
 	switch namespace {
 	case "":
-		namespace = val.Name()
+		namespace = typ.Name()
 	default:
-		namespace = namespace + "." + val.Name()
+		namespace = namespace + "." + typ.Name()
 	}
-	fields := getAvroFields(val, namespace)
+	fields := getAvroFields(typ, namespace)
 
 	switch model.Kind() {
 	case reflect.Struct, reflect.Ptr:
@@ -66,11 +65,10 @@ func getAvroFields(model reflect.Type, namespace string) []AvroField {
 	var fields []AvroField
 	var variable_type interface{}
 
-	val := strctTyp(model)
-	for i := 0; i < val.NumField(); i++ {
-		t := val.Field(i)
+	typ := strctTyp(model)
+	for i := 0; i < typ.NumField(); i++ {
+		t := typ.Field(i)
 		switch t.Type.Kind() {
-
 		case reflect.Struct, reflect.Ptr, reflect.Array, reflect.Map:
 			variable_type = getAvroRecords(t.Type, namespace)
 		case reflect.Float32:
