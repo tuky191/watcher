@@ -2,7 +2,6 @@ package rpcwatcher
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"rpc_watcher/rpcwatcher/avro"
 	"rpc_watcher/rpcwatcher/database"
@@ -50,18 +49,7 @@ var (
 
 type DataHandler func(watcher *Watcher, event coretypes.ResultEvent)
 
-type WsResponse struct {
-	Event coretypes.ResultEvent `json:"result"`
-}
-
 type Events map[string][]string
-
-// var (
-// 	aData = map[string]coretypes.ResultEvent{
-// 		"NewBlock": &types.EventDataNewBlock,
-// 		"Tx":       types.EventDataTx,
-// 	}
-// )
 
 type Watcher struct {
 	Name         string
@@ -301,7 +289,7 @@ func (w *Watcher) startChain(ctx context.Context) {
 }
 
 func HandleMessage(w *Watcher, data coretypes.ResultEvent) {
-	txHashSlice, _ := data.Events["tx.hash"]
+	txHashSlice := data.Events["tx.hash"]
 
 	if len(txHashSlice) == 0 {
 		return
@@ -311,106 +299,17 @@ func HandleMessage(w *Watcher, data coretypes.ResultEvent) {
 	chainName := w.Name
 	eventTx := data.Data.(types.EventDataTx)
 	w.l.Debugw("Transaction Info", "chainName", chainName, "txHash", txHash, "log", eventTx.Result.Log)
-	b, err := json.Marshal(data.Data)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+
 	message := pulsar.ProducerMessage{
-		Payload:    []byte(string(b)),
-		SequenceID: &eventTx.Height,
+		Value:       &eventTx,
+		SequenceID:  &eventTx.Height,
+		OrderingKey: strconv.FormatInt(eventTx.Height, 10),
 	}
 
 	producer.SendMessage(w.producers[data.Query], w.l, message)
 
 }
 
-/*
-	func HandleTerraBlock(w *Watcher, data coretypes.ResultEvent) {
-		w.l.Debugw("called HandleTerraBlock")
-		realData, ok := data.Data.(types.EventDataNewBlock)
-		if !ok {
-			panic("rpc returned data which is not of expected type")
-		}
-
-		time.Sleep(defaultTimeGap) // to handle the time gap between block production and event broadcast
-		newHeight := realData.Block.Header.Height
-
-		u := w.endpoint
-
-		ru, err := url.Parse(u)
-		if err != nil {
-			w.l.Errorw("cannot parse url", "url_string", u, "error", err)
-			return
-		}
-
-		vals := url.Values{}
-		vals.Set("height", strconv.FormatInt(newHeight, 10))
-
-		w.l.Debugw("asking for block", "height", newHeight)
-
-		ru.Path = "block_results"
-		ru.RawQuery = vals.Encode()
-
-		res := bytes.Buffer{}
-		spew.Dump(ru.String())
-
-		resp, err := http.Get(ru.String())
-		//spew.Dump(resp)
-		if err != nil {
-			w.l.Errorw("cannot query node for block data", "error", err, "height", newHeight)
-			return
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			w.l.Errorw("endpoint returned non-200 code", "code", resp.StatusCode, "height", newHeight)
-			return
-		}
-
-		defer func() {
-			_ = resp.Body.Close()
-		}()
-
-		read, err := res.ReadFrom(resp.Body)
-		if err != nil {
-			w.l.Errorw("cannot read block data resp body into buffer", "height", newHeight, "error", err)
-			return
-		}
-
-		if read == 0 {
-			w.l.Errorw("read zero bytes from response body", "height", newHeight)
-		}
-
-		// creating a grpc ClientConn to perform RPCs
-		grpcConn, err := grpc.Dial(
-			w.grpcEndpoint,
-			grpc.WithInsecure(),
-		)
-		if err != nil {
-			w.l.Errorw("cannot create gRPC client", "error", err, "chain_name", w.Name, "address", w.grpcEndpoint)
-			return
-		}
-
-		defer func() {
-			if err := grpcConn.Close(); err != nil {
-				w.l.Errorw("cannot close gRPC client", "error", err, "chain_name", w.Name)
-			}
-		}()
-		/*
-			liquidityQuery := liquiditytypes.NewQueryClient(grpcConn)
-			poolsRes, err := liquidityQuery.LiquidityPools(context.Background(), &liquiditytypes.QueryLiquidityPoolsRequest{})
-			if err != nil {
-				w.l.Errorw("cannot get liquidity pools in blocks", "error", err, "height", newHeight)
-			}
-
-			bz, err := w.store.Cdc.MarshalJSON(poolsRes)
-			if err != nil {
-				w.l.Errorw("cannot marshal liquidity pools", "error", err, "height", newHeight)
-			}
-			w.l.Infof(string(bz))
-
-}
-*/
 func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 	w.watchdog.Ping()
 	w.l.Debugw("performed watchdog ping", "chain_name", w.Name)
@@ -441,5 +340,4 @@ func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 		EventTime:   BlockResults.Block.Time,
 	}
 	producer.SendMessage(w.producers[data.Query], w.l, message)
-
 }
