@@ -1,7 +1,6 @@
 package avro
 
 import (
-	"bytes"
 	"encoding/json"
 	"reflect"
 
@@ -27,16 +26,11 @@ type AvroField struct {
 func GenerateAvroSchema(model interface{}) string {
 	record := getAvroRecords(reflect.TypeOf(model), reflect.TypeOf(model).Name())
 	st, err := json.Marshal(record)
-	var prettyJSON bytes.Buffer
-	error := json.Indent(&prettyJSON, st, "", " ")
 	if err != nil {
 		log.Err(err).Msg("")
 		return ""
 	}
-	if error != nil {
-		log.Err(error).Msg("failed to parse json")
-	}
-	return prettyJSON.String()
+	return string(st)
 }
 
 func getAvroRecords(model reflect.Type, namespace string) AvroSchema {

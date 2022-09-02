@@ -9,6 +9,12 @@ import (
 	"go.uber.org/zap"
 )
 
+type testJSON struct {
+	ID     int    `json:"id"`
+	Name   string `json:"name"`
+	Custom string `json:"custom"`
+}
+
 type Instance struct {
 	client pulsar.Client
 	p      pulsar.Producer
@@ -28,7 +34,7 @@ func New(o *Options) (*Instance, error) {
 		return nil, err
 	}
 
-	producer, err := NewWithClient(client, &o.ProducerOptions)
+	producer, err := NewWithClient(client, o.ProducerOptions)
 	if err != nil {
 		log.Fatalf("Could not start the producer: %v", err)
 		return nil, err
@@ -45,10 +51,8 @@ func New(o *Options) (*Instance, error) {
 	return ii, nil
 }
 
-func NewWithClient(c pulsar.Client, p *pulsar.ProducerOptions) (pulsar.Producer, error) {
-	producer, err := c.CreateProducer(pulsar.ProducerOptions{
-		Topic: p.Topic,
-	})
+func NewWithClient(c pulsar.Client, p pulsar.ProducerOptions) (pulsar.Producer, error) {
+	producer, err := c.CreateProducer(p)
 	if err != nil {
 		log.Fatalf("Could not start the producer: %v", err)
 		return nil, err
@@ -56,6 +60,7 @@ func NewWithClient(c pulsar.Client, p *pulsar.ProducerOptions) (pulsar.Producer,
 	return producer, err
 }
 func SendMessage(producer Instance, log *zap.SugaredLogger, message pulsar.ProducerMessage) {
+	//msg_id, err := producer.p.Send(ctx, &message)
 
 	msg_id, err := producer.p.Send(producer.ctx, &message)
 	if err != nil {

@@ -1,16 +1,11 @@
 package sync
 
 import (
-	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
 
-	tmjson "github.com/tendermint/tendermint/libs/json"
-	ctypes "github.com/tendermint/tendermint/rpc/core/types"
-	typesjson "github.com/tendermint/tendermint/rpc/jsonrpc/types"
 	tendermint "github.com/tendermint/tendermint/types"
 	block_feed "github.com/terra-money/mantlemint/block_feed"
 	"go.uber.org/zap"
@@ -35,7 +30,7 @@ func New(endpoint string, l *zap.SugaredLogger) *Instance {
 	return ii
 }
 
-func GetBlock(height int64, s *Instance) (*ctypes.ResultEvent, error) {
+func GetBlock(height int64, s *Instance) (*block_feed.BlockResult, error) {
 	ru, err := url.Parse(s.endpoint)
 	if err != nil {
 		s.logger.Errorw("cannot parse url", "url_string", s.endpoint, "error", err)
@@ -63,19 +58,7 @@ func GetBlock(height int64, s *Instance) (*ctypes.ResultEvent, error) {
 
 	block_results, err := block_feed.ExtractBlockFromRPCResponse(body)
 	//spew.Dump(block_results)
-	out, err := json.Marshal(block_results)
-	fmt.Printf("%s", out)
 
-	rpc_response := new(typesjson.RPCResponse)
-	err = tmjson.Unmarshal(body, rpc_response)
-
-	if err != nil {
-		s.logger.Errorw("failed to unmarshal response", "err", err)
-		return nil, err
-	}
-	fmt.Printf("%s", rpc_response.Result)
-	result := new(ctypes.ResultEvent)
-	err = tmjson.Unmarshal(rpc_response.Result, result)
 	if err != nil {
 		s.logger.Errorw("failed to unmarshal response", "err", err)
 
@@ -89,5 +72,5 @@ func GetBlock(height int64, s *Instance) (*ctypes.ResultEvent, error) {
 	defer func() {
 		_ = resp.Body.Close()
 	}()
-	return result, err
+	return block_results, err
 }
