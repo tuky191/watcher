@@ -424,9 +424,7 @@ func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 		BlockID: &blockID,
 		Block:   realData.Block,
 	}
-	// b, err := json.Marshal(BlockResults)
-	// if err != nil {
-	// }
+
 	if !ok {
 		panic("rpc returned block data which is not of expected type")
 	}
@@ -436,13 +434,11 @@ func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 	}
 
 	message := pulsar.ProducerMessage{
-		Value: &BlockResults,
-		//Payload:     []byte(string(b)),
+		Value:       &BlockResults,
 		SequenceID:  &realData.Block.Height,
 		OrderingKey: strconv.FormatInt(realData.Block.Height, 10),
 		EventTime:   BlockResults.Block.Time,
 	}
-	spew.Dump(message)
 	producer.SendMessage(w.producers[data.Query], w.l, message)
 
 }
