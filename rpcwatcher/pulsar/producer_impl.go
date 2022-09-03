@@ -1,4 +1,4 @@
-package producer
+package pulsar
 
 import (
 	"context"
@@ -9,25 +9,14 @@ import (
 	"go.uber.org/zap"
 )
 
-type testJSON struct {
-	ID     int    `json:"id"`
-	Name   string `json:"name"`
-	Custom string `json:"custom"`
-}
-
 type Instance struct {
-	client pulsar.Client
-	p      pulsar.Producer
-	ctx    context.Context
-	o      Options
+	client   pulsar.Client
+	Producer pulsar.Producer
+	ctx      context.Context
+	o        PulsarOptions
 }
 
-type Options struct {
-	ProducerOptions pulsar.ProducerOptions
-	ClientOptions   pulsar.ClientOptions
-}
-
-func New(o *Options) (*Instance, error) {
+func New(o *PulsarOptions) (*Instance, error) {
 	client, err := pulsar.NewClient(o.ClientOptions)
 	if err != nil {
 		log.Fatalf("Could not instantiate Pulsar client: %v", err)
@@ -40,9 +29,9 @@ func New(o *Options) (*Instance, error) {
 		return nil, err
 	}
 	ii := &Instance{
-		client: client,
-		p:      producer,
-		o:      *o,
+		client:   client,
+		Producer: producer,
+		o:        *o,
 	}
 
 	if err != nil {
@@ -59,10 +48,9 @@ func NewWithClient(c pulsar.Client, p pulsar.ProducerOptions) (pulsar.Producer, 
 	}
 	return producer, err
 }
-func SendMessage(producer Instance, log *zap.SugaredLogger, message pulsar.ProducerMessage) {
-	//msg_id, err := producer.p.Send(ctx, &message)
+func (i *Instance) SendMessage(log *zap.SugaredLogger, message pulsar.ProducerMessage) {
 
-	msg_id, err := producer.p.Send(producer.ctx, &message)
+	msg_id, err := i.Producer.Send(i.ctx, &message)
 	if err != nil {
 		fmt.Println("Failed to publish message", err)
 	}

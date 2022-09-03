@@ -14,7 +14,6 @@ import (
 	pulsar_logger "github.com/apache/pulsar-client-go/pulsar/log"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
-	"github.com/tendermint/tendermint/types"
 	block_feed "github.com/terra-money/mantlemint/block_feed"
 )
 
@@ -24,15 +23,20 @@ func main() {
 		JSON:  true,
 	})
 
-	//schema := avro.GenerateAvroSchema(&block_feed.BlockResult{})
-	schema := avro.GenerateAvroSchema(types.EventDataTx{})
+	schema := avro.GenerateAvroSchema(&block_feed.BlockResult{})
+	//schema := avro.GenerateAvroSchema(types.EventDataTx{})
 	spew.Dump(schema)
-	log.Fatal()
-	sync_instance := sync.New("http://127.0.0.1:26657", l)
-	block, err := sync.GetBlock(1, sync_instance)
+	syncer_options := sync.SyncerOptions{
+		Endpoint: "http://127.0.0.1:26657",
+		Logger:   l,
+	}
+	sync_instance := sync.New(syncer_options)
+	block, err := sync_instance.GetBlock(1)
 	if err != nil {
 		l.Errorw("Unable to get block", "url_string", "error", err)
 	}
+	spew.Dump(block)
+	//log.Fatal()
 	b := &block_feed.BlockResult{}
 	properties := make(map[string]string)
 	properties["pulsar"] = "EHLO"
@@ -40,7 +44,7 @@ func main() {
 
 	logrus_logger := logrus.StandardLogger()
 	logrus_logger.SetLevel(logrus.InfoLevel)
-	o := producer.Options{
+	o := producer.PulsarOptions{
 		ClientOptions: pulsar.ClientOptions{
 			URL:               "pulsar://localhost:6650",
 			OperationTimeout:  30 * time.Second,
@@ -58,7 +62,7 @@ func main() {
 		Value: block,
 	}
 
-	producer.SendMessage(*p, l, message)
+	p.SendMessage(l, message)
 
 	consumerJS := pulsar.NewJSONSchema(schema, nil)
 

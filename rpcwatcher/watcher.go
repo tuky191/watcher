@@ -61,7 +61,7 @@ type Watcher struct {
 	client            *client.WSClient
 	l                 *zap.SugaredLogger
 	db                *database.Instance
-	producers         map[string]producer.Instance
+	producers         map[string]*producer.Instance
 	runContext        context.Context
 	endpoint          string
 	grpcEndpoint      string
@@ -84,13 +84,13 @@ func NewWatcher(
 	if len(eventTypeMappings) == 0 {
 		return nil, fmt.Errorf("event type mappings cannot be empty")
 	}
-	producers := map[string]producer.Instance{}
+	producers := map[string]*producer.Instance{}
 	for _, eventKind := range subscriptions {
 
 		schema := avro.GenerateAvroSchema(EventTypeMap[eventKind])
 		properties := make(map[string]string)
 		jsonSchemaWithProperties := pulsar.NewJSONSchema(schema, properties)
-		o := producer.Options{
+		o := producer.PulsarOptions{
 			ClientOptions: pulsar.ClientOptions{
 				URL:               config.PulsarURL,
 				OperationTimeout:  30 * time.Second,
@@ -103,14 +103,14 @@ func NewWatcher(
 		if err != nil {
 			logger.Panicw("unable to start pulsar producer", "error", err)
 		}
-		producers[eventKind] = *p
+		producers[eventKind] = p
+
 		handlers, ok := eventTypeMappings[eventKind]
 
 		if !ok || len(handlers) == 0 {
 			return nil, fmt.Errorf("event %s found in subscriptions but no handler defined for it", eventKind)
 		}
 	}
-
 	ws, err := client.NewWS(
 		endpoint,
 		"/websocket",
@@ -151,6 +151,7 @@ func NewWatcher(
 		config:            config,
 	}
 
+	//w.producers[""].SendMessage()
 	w.l.Debugw("creating rpcwatcher with config", "apiurl", apiUrl)
 
 	for _, sub := range subscriptions {
@@ -305,8 +306,8 @@ func HandleMessage(w *Watcher, data coretypes.ResultEvent) {
 		SequenceID:  &eventTx.Height,
 		OrderingKey: strconv.FormatInt(eventTx.Height, 10),
 	}
-
-	producer.SendMessage(w.producers[data.Query], w.l, message)
+	producer := w.producers[data.Query]
+	producer.SendMessage(w.l, message)
 
 }
 
@@ -339,5 +340,6 @@ func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 		OrderingKey: strconv.FormatInt(realData.Block.Height, 10),
 		EventTime:   BlockResults.Block.Time,
 	}
-	producer.SendMessage(w.producers[data.Query], w.l, message)
+	producer := w.producers[data.Query]
+	producer.SendMessage(w.l, message)
 }

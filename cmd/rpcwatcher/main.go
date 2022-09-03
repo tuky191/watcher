@@ -87,9 +87,13 @@ func main() {
 
 	//spew.Dump(l)
 	//sync_instance := sync.NewSync("de")
+	options := sync.SyncerOptions{
+		Endpoint: endpoint(chain.ChainName),
+		Logger:   l,
+	}
 
-	sync_instance := sync.New(endpoint(chain.ChainName), l)
-	_, err = sync.GetBlock(1, sync_instance)
+	sync_instance := sync.New(options)
+	_, err = sync_instance.GetBlock(1)
 	if err != nil {
 		l.Errorw("Unable to get block", "url_string", "error", err)
 	}
