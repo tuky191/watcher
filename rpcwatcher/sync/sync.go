@@ -11,5 +11,7 @@ type SyncerOptions struct {
 }
 
 type Syncer interface {
-	GetBlock() (*block_feed.BlockResult, error)
+	GetBlockByHeight(height int64) (*block_feed.BlockResult, error)
+	GetLatestBlock() (*block_feed.BlockResult, error)
+	GetBlock(block_query block_query) (*block_feed.BlockResult, error)
 }

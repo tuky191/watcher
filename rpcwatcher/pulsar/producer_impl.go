@@ -16,7 +16,7 @@ type Instance struct {
 	o        PulsarOptions
 }
 
-func New(o *PulsarOptions) (*Instance, error) {
+func New(o *PulsarOptions) (Producer, error) {
 	client, err := pulsar.NewClient(o.ClientOptions)
 	if err != nil {
 		log.Fatalf("Could not instantiate Pulsar client: %v", err)

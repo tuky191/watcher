@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"rpc_watcher/rpcwatcher/avro"
 	"rpc_watcher/rpcwatcher/database"
-	producer "rpc_watcher/rpcwatcher/pulsar"
+	watcher_pulsar "rpc_watcher/rpcwatcher/pulsar"
 	"strconv"
 	"time"
 
@@ -61,7 +61,7 @@ type Watcher struct {
 	client            *client.WSClient
 	l                 *zap.SugaredLogger
 	db                *database.Instance
-	producers         map[string]*producer.Instance
+	producers         map[string]watcher_pulsar.Producer
 	runContext        context.Context
 	endpoint          string
 	grpcEndpoint      string
@@ -84,13 +84,13 @@ func NewWatcher(
 	if len(eventTypeMappings) == 0 {
 		return nil, fmt.Errorf("event type mappings cannot be empty")
 	}
-	producers := map[string]*producer.Instance{}
+	producers := map[string]watcher_pulsar.Producer{}
 	for _, eventKind := range subscriptions {
 
 		schema := avro.GenerateAvroSchema(EventTypeMap[eventKind])
 		properties := make(map[string]string)
 		jsonSchemaWithProperties := pulsar.NewJSONSchema(schema, properties)
-		o := producer.PulsarOptions{
+		o := watcher_pulsar.PulsarOptions{
 			ClientOptions: pulsar.ClientOptions{
 				URL:               config.PulsarURL,
 				OperationTimeout:  30 * time.Second,
@@ -98,7 +98,7 @@ func NewWatcher(
 			},
 			ProducerOptions: pulsar.ProducerOptions{Topic: "persistent://terra/" + chainName + "/" + eventKind, Schema: jsonSchemaWithProperties},
 		}
-		p, err := producer.New(&o)
+		p, err := watcher_pulsar.New(&o)
 
 		if err != nil {
 			logger.Panicw("unable to start pulsar producer", "error", err)

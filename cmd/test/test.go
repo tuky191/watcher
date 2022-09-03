@@ -31,7 +31,7 @@ func main() {
 		Logger:   l,
 	}
 	sync_instance := sync.New(syncer_options)
-	block, err := sync_instance.GetBlock(1)
+	block, err := sync_instance.GetBlockByHeight(1)
 	if err != nil {
 		l.Errorw("Unable to get block", "url_string", "error", err)
 	}
