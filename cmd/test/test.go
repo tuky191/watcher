@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"reflect"
 	"rpc_watcher/rpcwatcher/avro"
 	"rpc_watcher/rpcwatcher/logging"
 	producer "rpc_watcher/rpcwatcher/pulsar"
@@ -23,20 +24,55 @@ func main() {
 		JSON:  true,
 	})
 
+	// db_config := &presto.Config{
+	// 	PrestoURI: "http://root@localhost:8082",
+	// }
+	// db, err := database.New(db_config)
+	// if err != nil {
+	// 	l.Errorw("Unable to create presto db handle", "error", err)
+	// }
+	// min := "1000"
+	// max := "2000"
+	// result, err := db.Handle.Query(`select __sequence_id__ from pulsar."terra/localterra"."tm.event='newblock'" where __sequence_id__ > ` + min + ` and __sequence_id__ < ` + max)
+
+	// if err != nil {
+	// 	l.Errorw("Unable query pulsar", "error", err)
+	// }
+	// for result.Next() {
+	// 	var height int64
+	// 	if err := result.Scan(&height); err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// 	fmt.Printf("height is %d\n", height)
+	// }
+	// if err := result.Err(); err != nil {
+	// 	log.Fatal(err)
+	// }
+	//fmt.Println(result)
+	//spew.Dump(result)
+
+	//log.Fatal()
 	schema := avro.GenerateAvroSchema(&block_feed.BlockResult{})
+
 	//schema := avro.GenerateAvroSchema(types.EventDataTx{})
-	spew.Dump(schema)
+	//spew.Dump(schema)
 	syncer_options := sync.SyncerOptions{
 		Endpoint: "http://127.0.0.1:26657",
 		Logger:   l,
 	}
 	sync_instance := sync.New(syncer_options)
-	block, err := sync_instance.GetBlockByHeight(1)
+	// block, err := sync_instance.GetBlockByHeight(1)
+	// if err != nil {
+	// 	l.Errorw("Unable to get block", "url_string", "error", err)
+	// }
+	// spew.Dump(block)
+	block, err := sync_instance.GetLatestBlock()
 	if err != nil {
 		l.Errorw("Unable to get block", "url_string", "error", err)
 	}
-	spew.Dump(block)
-	//log.Fatal()
+	// spew.Dump(block)
+	// log.Fatal()
+
 	b := &block_feed.BlockResult{}
 	properties := make(map[string]string)
 	properties["pulsar"] = "EHLO"
@@ -52,9 +88,19 @@ func main() {
 			Logger:            pulsar_logger.NewLoggerWithLogrus(logrus_logger),
 		},
 		ProducerOptions: pulsar.ProducerOptions{Topic: "persistent://terra/localterra/tm.event='NewBlock'", Schema: jsonSchemaWithProperties},
+		TableViewOptions: pulsar.TableViewOptions{
+			Topic: "persistent://terra/localterra/tm.event='NewBlock'", Schema: jsonSchemaWithProperties, SchemaValueType: reflect.TypeOf(&block_feed.BlockResult{}),
+		},
 	}
 
-	p, err := producer.New(&o)
+	//table_view_config :=
+	table_view, err := producer.NewTableView(&o)
+	if err != nil {
+		fmt.Printf("%s", err)
+	}
+	table_view.GetElement(l)
+	log.Fatal("Lst message received")
+	p, err := producer.NewProducer(&o)
 	if err != nil {
 		fmt.Printf("%s", err)
 	}

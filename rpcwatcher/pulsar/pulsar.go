@@ -6,10 +6,15 @@ import (
 )
 
 type PulsarOptions struct {
-	ProducerOptions pulsar.ProducerOptions
-	ClientOptions   pulsar.ClientOptions
+	ProducerOptions  pulsar.ProducerOptions
+	ClientOptions    pulsar.ClientOptions
+	TableViewOptions pulsar.TableViewOptions
 }
 
 type Producer interface {
 	SendMessage(log *zap.SugaredLogger, message pulsar.ProducerMessage)
+}
+
+type TableView interface {
+	GetElement(log *zap.SugaredLogger)
 }

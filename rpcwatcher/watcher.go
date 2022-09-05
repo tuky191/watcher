@@ -61,7 +61,7 @@ type Watcher struct {
 	client            *client.WSClient
 	l                 *zap.SugaredLogger
 	db                *database.Instance
-	producers         map[string]watcher_pulsar.Producer
+	Producers         map[string]watcher_pulsar.Producer
 	runContext        context.Context
 	endpoint          string
 	grpcEndpoint      string
@@ -98,7 +98,7 @@ func NewWatcher(
 			},
 			ProducerOptions: pulsar.ProducerOptions{Topic: "persistent://terra/" + chainName + "/" + eventKind, Schema: jsonSchemaWithProperties},
 		}
-		p, err := watcher_pulsar.New(&o)
+		p, err := watcher_pulsar.NewProducer(&o)
 
 		if err != nil {
 			logger.Panicw("unable to start pulsar producer", "error", err)
@@ -137,7 +137,7 @@ func NewWatcher(
 		client:            ws,
 		l:                 logger,
 		db:                database,
-		producers:         producers,
+		Producers:         producers,
 		Name:              chainName,
 		endpoint:          endpoint,
 		grpcEndpoint:      grpcEndpoint,
@@ -306,7 +306,7 @@ func HandleMessage(w *Watcher, data coretypes.ResultEvent) {
 		SequenceID:  &eventTx.Height,
 		OrderingKey: strconv.FormatInt(eventTx.Height, 10),
 	}
-	producer := w.producers[data.Query]
+	producer := w.Producers[data.Query]
 	producer.SendMessage(w.l, message)
 
 }
@@ -340,6 +340,6 @@ func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 		OrderingKey: strconv.FormatInt(realData.Block.Height, 10),
 		EventTime:   BlockResults.Block.Time,
 	}
-	producer := w.producers[data.Query]
+	producer := w.Producers[data.Query]
 	producer.SendMessage(w.l, message)
 }

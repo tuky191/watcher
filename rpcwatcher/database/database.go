@@ -8,7 +8,7 @@ import (
 )
 
 type Instance struct {
-	db     *sql.DB
+	Handle *sql.DB
 	config presto.Config
 }
 
@@ -18,9 +18,10 @@ func New(config *presto.Config) (*Instance, error) {
 	if err != nil {
 		return nil, err
 	}
+	//spew.Dump(dsn)
 	db, err := sql.Open("presto", dsn)
 	ii := &Instance{
-		db:     db,
+		Handle: db,
 		config: *config,
 	}
 	return ii, err

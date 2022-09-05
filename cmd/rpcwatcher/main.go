@@ -87,9 +87,17 @@ func main() {
 
 	//spew.Dump(l)
 	//sync_instance := sync.NewSync("de")
+
+	watcher, cancel := startNewWatcher(chain.ChainName, c, l, db, false)
+	watchers[chain.ChainName] = watcherInstance{
+		watcher: watcher,
+		cancel:  cancel,
+	}
+
 	options := sync.SyncerOptions{
 		Endpoint: endpoint(chain.ChainName),
 		Logger:   l,
+		Watcher:  watcher,
 	}
 
 	sync_instance := sync.New(options)
@@ -97,12 +105,6 @@ func main() {
 	if err != nil {
 		l.Errorw("Unable to get block", "url_string", "error", err)
 	}
-	watcher, cancel := startNewWatcher(chain.ChainName, c, l, db, false)
-	watchers[chain.ChainName] = watcherInstance{
-		watcher: watcher,
-		cancel:  cancel,
-	}
-
 	for range time.Tick(1 * time.Second) {
 		continue
 	}

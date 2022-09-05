@@ -9,26 +9,26 @@ import (
 	"go.uber.org/zap"
 )
 
-type Instance struct {
+type ProducerInstance struct {
 	client   pulsar.Client
 	Producer pulsar.Producer
 	ctx      context.Context
 	o        PulsarOptions
 }
 
-func New(o *PulsarOptions) (Producer, error) {
+func NewProducer(o *PulsarOptions) (Producer, error) {
 	client, err := pulsar.NewClient(o.ClientOptions)
 	if err != nil {
 		log.Fatalf("Could not instantiate Pulsar client: %v", err)
 		return nil, err
 	}
 
-	producer, err := NewWithClient(client, o.ProducerOptions)
+	producer, err := NewProducerWithClient(client, o.ProducerOptions)
 	if err != nil {
 		log.Fatalf("Could not start the producer: %v", err)
 		return nil, err
 	}
-	ii := &Instance{
+	ii := &ProducerInstance{
 		client:   client,
 		Producer: producer,
 		o:        *o,
@@ -40,7 +40,7 @@ func New(o *PulsarOptions) (Producer, error) {
 	return ii, nil
 }
 
-func NewWithClient(c pulsar.Client, p pulsar.ProducerOptions) (pulsar.Producer, error) {
+func NewProducerWithClient(c pulsar.Client, p pulsar.ProducerOptions) (pulsar.Producer, error) {
 	producer, err := c.CreateProducer(p)
 	if err != nil {
 		log.Fatalf("Could not start the producer: %v", err)
@@ -48,7 +48,7 @@ func NewWithClient(c pulsar.Client, p pulsar.ProducerOptions) (pulsar.Producer, 
 	}
 	return producer, err
 }
-func (i *Instance) SendMessage(log *zap.SugaredLogger, message pulsar.ProducerMessage) {
+func (i *ProducerInstance) SendMessage(log *zap.SugaredLogger, message pulsar.ProducerMessage) {
 
 	msg_id, err := i.Producer.Send(i.ctx, &message)
 	if err != nil {
