@@ -23,6 +23,8 @@ import (
 const (
 	EventsTx                = "tm.event='Tx'"
 	EventsBlock             = "tm.event='NewBlock'"
+	EventsTxTopic           = "tx"
+	EventsBlockTopic        = "newblock"
 	defaultWSClientReadWait = 30 * time.Second
 	defaultWatchdogTimeout  = 20 * time.Second
 	defaultReconnectionTime = 15 * time.Second
@@ -35,6 +37,10 @@ var (
 	EventTypeMap  = map[string]interface{}{
 		EventsBlock: block_feed.BlockResult{},
 		EventsTx:    types.EventDataTx{},
+	}
+	TopicsMap = map[string]string{
+		EventsBlock: EventsBlockTopic,
+		EventsTx:    EventsTxTopic,
 	}
 
 	StandardMappings = map[string][]DataHandler{
@@ -96,7 +102,7 @@ func NewWatcher(
 				OperationTimeout:  30 * time.Second,
 				ConnectionTimeout: 30 * time.Second,
 			},
-			ProducerOptions: pulsar.ProducerOptions{Topic: "persistent://terra/" + chainName + "/" + eventKind, Schema: jsonSchemaWithProperties},
+			ProducerOptions: pulsar.ProducerOptions{Topic: "persistent://terra/" + chainName + "/" + TopicsMap[eventKind], Schema: jsonSchemaWithProperties},
 		}
 		p, err := watcher_pulsar.NewProducer(&o)
 

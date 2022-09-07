@@ -12,7 +12,7 @@ var AvroSchemas []AvroSchema
 type AvroSchema struct {
 	Type      string      `json:"type"`
 	Name      string      `json:"name"`
-	Namespace string      `json:"namespace"`
+	Namespace string      `json:"namespace,omitempty"`
 	Fields    []AvroField `json:"fields,omitempty"`
 	Values    []AvroField `json:"values,omitempty"`
 	Items     []AvroField `json:"items,omitempty"`
@@ -80,7 +80,7 @@ func getAvroFields(model reflect.Type, namespace string) []AvroField {
 		case reflect.Float64:
 			variable_type = "double"
 		case reflect.Slice:
-			variable_type = "bytes"
+			variable_type = "string"
 		case reflect.Interface:
 		case reflect.Bool:
 			variable_type = "boolean"
