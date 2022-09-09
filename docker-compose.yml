@@ -16,6 +16,7 @@ services:
     depends_on:
       - pulsar
   pulsar:
+    #image: apachepulsar/pulsar:2.10.1
     #image: apachepulsar/pulsar:latest
     #image built for arm64-linux / apple M1
     image: kezhenxu94/pulsar:latest
@@ -25,8 +26,10 @@ services:
       - 8082:8081 #presto port
       - 6650:6650
       - 2181:2181
+      - 5005:5005
     environment:
       PULSAR_MEM: ' -Xms512m -Xmx512m -XX:MaxDirectMemorySize=1g'
+      PULSAR_STANDALONE_USE_ZOOKEEPER: 1
     volumes:
       - pulsardata:/pulsar/data
       - pulsarconf:/pulsar/conf

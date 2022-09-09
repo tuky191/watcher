@@ -2,12 +2,21 @@ package avro
 
 import (
 	"encoding/json"
+	"net"
+	"net/url"
 	"reflect"
+	"strings"
+	"time"
 
 	"github.com/rs/zerolog/log"
 )
 
 var AvroSchemas []AvroSchema
+var (
+	timeType = reflect.TypeOf(time.Time{}) // date-time RFC section 7.3.1
+	ipType   = reflect.TypeOf(net.IP{})    // ipv4 and ipv6 RFC section 7.3.4, 7.3.5
+	uriType  = reflect.TypeOf(url.URL{})   // uri RFC section 7.3.6
+)
 
 type AvroSchema struct {
 	Type      string      `json:"type"`
@@ -24,7 +33,16 @@ type AvroField struct {
 }
 
 func GenerateAvroSchema(model interface{}) string {
-	record := getAvroRecords(reflect.TypeOf(model), reflect.TypeOf(model).Name())
+
+	typ := strctTyp(reflect.TypeOf(model))
+	root := []reflect.StructField{
+		{
+			Name:    typ.Name(),
+			Type:    typ,
+			PkgPath: typ.PkgPath(),
+		},
+	}
+	record := getAvroRecords(root[0], "", true)
 	st, err := json.Marshal(record)
 	if err != nil {
 		log.Err(err).Msg("")
@@ -33,23 +51,28 @@ func GenerateAvroSchema(model interface{}) string {
 	return string(st)
 }
 
-func getAvroRecords(model reflect.Type, namespace string) AvroSchema {
-	typ := strctTyp(model)
+func getAvroRecords(model reflect.StructField, namespace string, root bool) AvroSchema {
+	typ := strctTyp(model.Type)
 
 	record := AvroSchema{
 		Type:      "record",
-		Name:      typ.Name(),
+		Name:      getFieldName(model),
 		Namespace: namespace,
 	}
-	switch namespace {
-	case "":
-		namespace = typ.Name()
-	default:
-		namespace = namespace + "." + typ.Name()
+	if !root {
+		switch namespace {
+		case "":
+			namespace = getFieldName(model)
+		default:
+			namespace = namespace + "." + getFieldName(model)
+		}
+	} else {
+		namespace = getFieldName(model)
 	}
+
 	fields := getAvroFields(typ, namespace)
 
-	switch model.Kind() {
+	switch typ.Kind() {
 	case reflect.Struct, reflect.Ptr:
 		record.Fields = fields
 	case reflect.Array:
@@ -67,10 +90,22 @@ func getAvroFields(model reflect.Type, namespace string) []AvroField {
 
 	typ := strctTyp(model)
 	for i := 0; i < typ.NumField(); i++ {
-		t := typ.Field(i)
-		switch t.Type.Kind() {
+		f := typ.Field(i)
+		var kind reflect.Kind
+		switch f.Type {
+		case timeType:
+			kind = reflect.String
+		case ipType:
+			kind = reflect.String
+		case uriType:
+			kind = reflect.String
+		default:
+			kind = f.Type.Kind()
+		}
+
+		switch kind {
 		case reflect.Struct, reflect.Ptr, reflect.Array, reflect.Map:
-			variable_type = getAvroRecords(t.Type, namespace)
+			variable_type = getAvroRecords(f, namespace, false)
 		case reflect.Float32:
 			variable_type = "float"
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
@@ -88,11 +123,11 @@ func getAvroFields(model reflect.Type, namespace string) []AvroField {
 		case reflect.String:
 			variable_type = "string"
 		default:
-			panic("unsupported type " + t.Type.String())
+			panic("unsupported type " + f.Type.String())
 		}
 
 		field := AvroField{
-			Name: t.Name,
+			Name: getFieldName(f),
 			Type: variable_type,
 		}
 		fields = append(fields, field)
@@ -106,4 +141,15 @@ func strctTyp(s reflect.Type) reflect.Type {
 		s = s.Elem()
 	}
 	return s
+}
+
+func getFieldName(t reflect.StructField) string {
+	var name string
+
+	name = strings.Split(t.Tag.Get("json"), ",")[0]
+	if name == "" {
+		name = t.Name
+	}
+
+	return name
 }
