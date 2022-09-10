@@ -22,6 +22,8 @@ require (
 require (
 	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/gin-gonic/gin v1.7.7 // indirect
+	github.com/iancoleman/orderedmap v0.0.0-20190318233801-ac98e3ecb4b0 // indirect
+	github.com/invopop/jsonschema v0.6.0 // indirect
 	github.com/lib/pq v1.10.6 // indirect
 	google.golang.org/grpc v1.48.0 // indirect
 )
@@ -30,6 +32,7 @@ require (
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.1 // indirect
 	github.com/AthenZ/athenz v1.11.5 // indirect
+	github.com/CosmWasm/wasmvm v1.1.0
 	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/apache/pulsar-client-go v0.9.0-candidate-1.0.20220903022036-68e43175f2c4
 	github.com/ardielle/ardielle-go v1.5.2 // indirect

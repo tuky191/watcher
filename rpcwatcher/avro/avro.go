@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/rs/zerolog/log"
 )
 
@@ -24,7 +26,7 @@ type AvroSchema struct {
 	Namespace string      `json:"namespace,omitempty"`
 	Fields    []AvroField `json:"fields,omitempty"`
 	Values    []AvroField `json:"values,omitempty"`
-	Items     []AvroField `json:"items,omitempty"`
+	Items     interface{} `json:"items,omitempty"`
 }
 
 type AvroField struct {
@@ -35,14 +37,12 @@ type AvroField struct {
 func GenerateAvroSchema(model interface{}) string {
 
 	typ := strctTyp(reflect.TypeOf(model))
-	root := []reflect.StructField{
-		{
-			Name:    typ.Name(),
-			Type:    typ,
-			PkgPath: typ.PkgPath(),
-		},
+	root := reflect.StructField{
+		Name:    typ.Name(),
+		Type:    typ,
+		PkgPath: typ.PkgPath(),
 	}
-	record := getAvroRecords(root[0], "", true)
+	record := getAvroRecords(root, "", true)
 	st, err := json.Marshal(record)
 	if err != nil {
 		log.Err(err).Msg("")
@@ -51,8 +51,31 @@ func GenerateAvroSchema(model interface{}) string {
 	return string(st)
 }
 
-func getAvroRecords(model reflect.StructField, namespace string, root bool) AvroSchema {
+func getAvroRecords(model reflect.StructField, namespace string, root bool) interface{} {
 	typ := strctTyp(model.Type)
+	if model.Type.Kind() == reflect.Slice {
+		spew.Dump(model)
+
+		switch model.Type.Elem().Kind() {
+		case reflect.Struct, reflect.Ptr, reflect.Array, reflect.Map, reflect.Slice:
+			typ := model.Type.Elem()
+			struct_type := reflect.StructField{
+
+				Name:    typ.Name(),
+				Type:    typ,
+				PkgPath: typ.PkgPath(),
+			}
+			record := AvroSchema{
+				Type:      "array",
+				Name:      getFieldName(struct_type),
+				Namespace: namespace,
+				Items:     getAvroRecords(struct_type, namespace, false),
+			}
+			return record
+		default:
+			return "string"
+		}
+	}
 
 	record := AvroSchema{
 		Type:      "record",
@@ -69,7 +92,6 @@ func getAvroRecords(model reflect.StructField, namespace string, root bool) Avro
 	} else {
 		namespace = getFieldName(model)
 	}
-
 	fields := getAvroFields(typ, namespace)
 
 	switch typ.Kind() {
@@ -104,7 +126,7 @@ func getAvroFields(model reflect.Type, namespace string) []AvroField {
 		}
 
 		switch kind {
-		case reflect.Struct, reflect.Ptr, reflect.Array, reflect.Map:
+		case reflect.Struct, reflect.Ptr, reflect.Array, reflect.Map, reflect.Slice:
 			variable_type = getAvroRecords(f, namespace, false)
 		case reflect.Float32:
 			variable_type = "float"
@@ -114,8 +136,6 @@ func getAvroFields(model reflect.Type, namespace string) []AvroField {
 			variable_type = "long"
 		case reflect.Float64:
 			variable_type = "double"
-		case reflect.Slice:
-			variable_type = "string"
 		case reflect.Interface:
 		case reflect.Bool:
 			variable_type = "boolean"
@@ -145,7 +165,6 @@ func strctTyp(s reflect.Type) reflect.Type {
 
 func getFieldName(t reflect.StructField) string {
 	var name string
-
 	name = strings.Split(t.Tag.Get("json"), ",")[0]
 	if name == "" {
 		name = t.Name

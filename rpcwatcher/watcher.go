@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"time"
 
+	abci "github.com/tendermint/tendermint/abci/types"
+
 	"github.com/apache/pulsar-client-go/pulsar"
 	tmjson "github.com/tendermint/tendermint/libs/json"
 	"github.com/tendermint/tendermint/types"
@@ -36,7 +38,7 @@ var (
 	EventsToSubTo = []string{EventsTx, EventsBlock}
 	EventTypeMap  = map[string]interface{}{
 		EventsBlock: block_feed.BlockResult{},
-		EventsTx:    types.EventDataTx{},
+		EventsTx:    abci.TxResult{},
 	}
 	TopicsMap = map[string]string{
 		EventsBlock: EventsBlockTopic,
@@ -307,10 +309,14 @@ func HandleMessage(w *Watcher, data coretypes.ResultEvent) {
 	eventTx := data.Data.(types.EventDataTx)
 	w.l.Debugw("Transaction Info", "chainName", chainName, "txHash", txHash, "log", eventTx.Result.Log)
 
+	if eventTx.TxResult.Result.Events == nil {
+		eventTx.TxResult.Result.Events = make([]abci.Event, 0)
+	}
+
 	message := pulsar.ProducerMessage{
-		Value:       &eventTx,
-		SequenceID:  &eventTx.Height,
-		OrderingKey: strconv.FormatInt(eventTx.Height, 10),
+		Value:       &eventTx.TxResult,
+		SequenceID:  &eventTx.TxResult.Height,
+		OrderingKey: strconv.FormatInt(eventTx.TxResult.Height, 10),
 	}
 	producer := w.Producers[data.Query]
 	producer.SendMessage(w.l, message)
@@ -339,7 +345,15 @@ func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 	if realData.Block == nil {
 		w.l.Warnw("weird block received on rpc, it was empty while it shouldn't", "chain_name", w.Name)
 	}
-
+	if BlockResults.Block.Data.Txs == nil {
+		BlockResults.Block.Data.Txs = make(types.Txs, 0)
+	}
+	if BlockResults.Block.Evidence.Evidence == nil {
+		BlockResults.Block.Evidence.Evidence = make(types.EvidenceList, 0)
+	}
+	if BlockResults.Block.LastCommit.Signatures == nil {
+		BlockResults.Block.LastCommit.Signatures = make([]types.CommitSig, 0)
+	}
 	message := pulsar.ProducerMessage{
 		Value:       &BlockResults,
 		SequenceID:  &realData.Block.Height,

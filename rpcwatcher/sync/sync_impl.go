@@ -13,6 +13,7 @@ import (
 
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/prestodb/presto-go-client/presto"
+	"github.com/tendermint/tendermint/types"
 	block_feed "github.com/terra-money/mantlemint/block_feed"
 	"go.uber.org/zap"
 )
@@ -81,7 +82,7 @@ func (i *instance) GetBlock(query interface{}) (*block_feed.BlockResult, error) 
 		return nil, err
 	}
 
-	block_results, err := block_feed.ExtractBlockFromRPCResponse(body)
+	block_result, err := block_feed.ExtractBlockFromRPCResponse(body)
 
 	if err != nil {
 		i.logger.Errorw("failed to unmarshal response", "err", err)
@@ -96,9 +97,48 @@ func (i *instance) GetBlock(query interface{}) (*block_feed.BlockResult, error) 
 	defer func() {
 		_ = resp.Body.Close()
 	}()
-	return block_results, err
+	//result := init_empty_slice(block_result)
+	if block_result.Block.Data.Txs == nil {
+		block_result.Block.Data.Txs = make(types.Txs, 0)
+	}
+	if block_result.Block.Evidence.Evidence == nil {
+		block_result.Block.Evidence.Evidence = make(types.EvidenceList, 0)
+	}
+	if block_result.Block.LastCommit.Signatures == nil {
+		block_result.Block.LastCommit.Signatures = make([]types.CommitSig, 0)
+	}
+
+	return block_result, err
 }
 
+// func init_empty_slice(s interface{}) interface{} {
+// 	val := strctVal(s)
+// 	if s.(*block_feed.BlockResult).Block.Data.Txs == nil {
+// 		s.(*block_feed.BlockResult).Block.Data.Txs := make([]types.Txs, 0)
+// 	}
+// 	spew.Dump(s.(*block_feed.BlockResult).Block.Data.Txs)
+// 	log.Fatal()
+// 	v := val.Type()
+// 	for i := 0; i < val.NumField(); i++ {
+// 		t := v.Field(i)
+// 		if val.Field(i).Kind() == reflect.Slice {
+// 			spew.Dump(t)
+// 		}
+
+// 	}
+// 	return s
+// }
+
+// func strctVal(s interface{}) reflect.Value {
+// 	v := reflect.ValueOf(s)
+
+// 	// if pointer get the underlying element
+// 	for v.Kind() == reflect.Ptr {
+// 		v = v.Elem()
+// 	}
+
+// 	return v
+// }
 func (i *instance) Init() {
 	db_config := &presto.Config{
 		PrestoURI: "http://root@localhost:8082",
@@ -121,7 +161,7 @@ func (i *instance) Sync() {
 	}
 	current_height := latest_block.Block.Height
 	min_height := 0
-	published_blocks, err := i.db.Handle.Query(`select __sequence_id__ from pulsar."terra/localterra"."tm.event='newblock'" where __sequence_id__ > ` + fmt.Sprint(min_height) + ` and __sequence_id__ < ` + fmt.Sprint(current_height))
+	published_blocks, err := i.db.Handle.Query(`select __sequence_id__ from pulsar."terra/localterra".newblock where __sequence_id__ > ` + fmt.Sprint(min_height) + ` and __sequence_id__ < ` + fmt.Sprint(current_height))
 	if err != nil {
 		i.logger.Errorw("Unable processed blocks from presto/pulsar", "error", err)
 	}
