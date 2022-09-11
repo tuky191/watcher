@@ -3,7 +3,6 @@ package database
 import (
 	"database/sql"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/prestodb/presto-go-client/presto"
 	_ "github.com/prestodb/presto-go-client/presto"
 )
@@ -19,7 +18,6 @@ func New(config *presto.Config) (*Instance, error) {
 	if err != nil {
 		return nil, err
 	}
-	spew.Dump(dsn)
 	db, err := sql.Open("presto", dsn)
 	ii := &Instance{
 		Handle: db,
