@@ -95,7 +95,7 @@ func NewWatcher(
 	producers := map[string]watcher_pulsar.Producer{}
 	for _, eventKind := range subscriptions {
 
-		schema := avro.GenerateAvroSchema(EventTypeMap[eventKind])
+		schema, err := avro.GenerateAvroSchema(EventTypeMap[eventKind])
 		properties := make(map[string]string)
 		jsonSchemaWithProperties := pulsar.NewJSONSchema(schema, properties)
 		o := watcher_pulsar.PulsarOptions{

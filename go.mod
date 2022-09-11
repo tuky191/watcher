@@ -25,6 +25,8 @@ require (
 	github.com/iancoleman/orderedmap v0.0.0-20190318233801-ac98e3ecb4b0 // indirect
 	github.com/invopop/jsonschema v0.6.0 // indirect
 	github.com/lib/pq v1.10.6 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+	golang.org/x/exp v0.0.0-20220909182711-5c715a9e8561 // indirect
 	google.golang.org/grpc v1.48.0 // indirect
 )
 
@@ -49,6 +51,7 @@ require (
 	github.com/go-kit/kit v0.12.0 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
+	github.com/go-playground/assert/v2 v2.2.0
 	github.com/go-playground/locales v0.14.0 // indirect
 	github.com/go-playground/universal-translator v0.18.0 // indirect
 	github.com/godbus/dbus v0.0.0-20190726142602-4481cbc300e2 // indirect
@@ -66,6 +69,7 @@ require (
 	github.com/klauspost/compress v1.15.9 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
+	github.com/linkedin/goavro v2.1.0+incompatible
 	github.com/linkedin/goavro/v2 v2.11.1 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
@@ -76,6 +80,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
+	github.com/nsf/jsondiff v0.0.0-20210926074059-1e845ec5d249
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.2 // indirect
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
@@ -95,6 +100,7 @@ require (
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/stretchr/testify v1.8.0
 	github.com/subosito/gotenv v1.4.0 // indirect
 	github.com/terra-money/mantlemint v0.1.6
 	github.com/ugorji/go/codec v1.1.7 // indirect

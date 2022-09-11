@@ -2,13 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"rpc_watcher/rpcwatcher/avro"
 
 	"github.com/apache/pulsar-client-go/pulsar"
+	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/types"
-	"github.com/terra-money/mantlemint/block_feed"
 )
 
 func main() {
@@ -21,46 +22,46 @@ func main() {
 	}
 	defer client.Close()
 
-	b := &block_feed.BlockResult{}
-	schema := avro.GenerateAvroSchema(&block_feed.BlockResult{})
+	// b := &block_feed.BlockResult{}
+	// schema := avro.GenerateAvroSchema(&block_feed.BlockResult{})
 
-	consumerJS := pulsar.NewJSONSchema(schema, nil)
+	// consumerJS := pulsar.NewJSONSchema(schema, nil)
 
-	chainName := "localterra"
-	eventKind := "tm.event='NewBlock'"
-	consumer, err := client.Subscribe(pulsar.ConsumerOptions{
-		Topic:                       "persistent://terra/" + chainName + "/" + eventKind,
-		SubscriptionName:            "my-sub1",
-		Type:                        pulsar.Exclusive,
-		Schema:                      consumerJS,
-		SubscriptionInitialPosition: pulsar.SubscriptionPositionLatest,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
+	// chainName := "localterra"
+	// eventKind := "newblock"
+	// consumer, err := client.Subscribe(pulsar.ConsumerOptions{
+	// 	Topic:                       "persistent://terra/" + chainName + "/" + eventKind,
+	// 	SubscriptionName:            "my-sub1",
+	// 	Type:                        pulsar.Exclusive,
+	// 	Schema:                      consumerJS,
+	// 	SubscriptionInitialPosition: pulsar.SubscriptionPositionLatest,
+	// })
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
-	defer consumer.Close()
+	// defer consumer.Close()
 
-	msg, err := consumer.Receive(context.Background())
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = msg.GetSchemaValue(&b)
-	if err != nil {
-		log.Fatal(err)
-	}
+	// msg, err := consumer.Receive(context.Background())
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// err = msg.GetSchemaValue(&b)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
-	fmt.Printf("Received message msgId: %#v -- content:\n '%+v'\n",
-		msg.ID(), b)
+	// fmt.Printf("Received message msgId: %#v -- content:\n '%+v'\n",
+	// 	msg.ID(), b)
 
 	tx := types.EventDataTx{}
-	schema_tx := avro.GenerateAvroSchema(types.EventDataTx{})
+	schema_tx, err := avro.GenerateAvroSchema(abci.TxResult{})
 
 	consumerTx := pulsar.NewJSONSchema(schema_tx, nil)
 
-	chainName = "localterra"
-	eventKind = "tm.event='Tx'"
-	consumer, err = client.Subscribe(pulsar.ConsumerOptions{
+	chainName := "localterra"
+	eventKind := "tx"
+	consumer, err := client.Subscribe(pulsar.ConsumerOptions{
 		Topic:                       "persistent://terra/" + chainName + "/" + eventKind,
 		SubscriptionName:            "my-sub1",
 		Type:                        pulsar.Exclusive,
@@ -73,7 +74,7 @@ func main() {
 
 	defer consumer.Close()
 
-	msg, err = consumer.Receive(context.Background())
+	msg, err := consumer.Receive(context.Background())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -81,6 +82,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	marsh_json, err := json.Marshal(tx)
+	fmt.Printf("%s", marsh_json)
 
 	fmt.Printf("Received message msgId: %#v -- content:\n '%+v'\n",
 		msg.ID(), tx)

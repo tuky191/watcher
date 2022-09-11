@@ -8,29 +8,105 @@ import (
 	"net/url"
 	"reflect"
 	"rpc_watcher/rpcwatcher"
+	"rpc_watcher/rpcwatcher/avro"
 	"rpc_watcher/rpcwatcher/database"
+	watcher_pulsar "rpc_watcher/rpcwatcher/pulsar"
 	"strconv"
+	"time"
 
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/prestodb/presto-go-client/presto"
 	"github.com/tendermint/tendermint/types"
 	block_feed "github.com/terra-money/mantlemint/block_feed"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 )
 
 type instance struct {
 	endpoint string
 	logger   *zap.SugaredLogger
 	db       *database.Instance
-	w        *rpcwatcher.Watcher
+	p        map[string]watcher_pulsar.Producer
+	config   *rpcwatcher.Config
 }
 
-func New(options SyncerOptions) Syncer {
+type block struct {
+	height    int64
+	published bool
+}
+type block_range struct {
+	min_height int64
+	max_height int64
+	blocks     []block
+}
 
+func InitBlocks(height int64, size int64) []block_range {
+	result := []block_range{}
+	for i := int64(0); i <= height; i += size {
+		blocks := []block{}
+		block_range := block_range{
+			min_height: i,
+			max_height: i + size,
+		}
+
+		for k := i; k <= i+size; k++ {
+			blocks = append(blocks, block{height: k, published: false})
+		}
+		block_range.blocks = blocks
+		result = append(result, block_range)
+	}
+	return result
+}
+
+func New(c *rpcwatcher.Config, l *zap.SugaredLogger) Syncer {
+	db_config := &presto.Config{
+		PrestoURI: c.PrestoURI,
+		Catalog:   "terra",
+		Schema:    c.ChainID,
+	}
+
+	presto_db, err := database.New(db_config)
+	if err != nil {
+		l.Errorw("Unable to create presto db handle", "error", err)
+	}
+
+	producers := map[string]watcher_pulsar.Producer{}
+	for _, eventKind := range rpcwatcher.EventsToSubTo {
+
+		schema, err := avro.GenerateAvroSchema(rpcwatcher.EventTypeMap[eventKind])
+		if err != nil {
+			l.Panicw("unable to generate avro schema", "error", err, "event kind", eventKind)
+		}
+		properties := make(map[string]string)
+		jsonSchemaWithProperties := pulsar.NewJSONSchema(schema, properties)
+		o := watcher_pulsar.PulsarOptions{
+			ClientOptions: pulsar.ClientOptions{
+				URL:               c.PulsarURL,
+				OperationTimeout:  30 * time.Second,
+				ConnectionTimeout: 30 * time.Second,
+			},
+			ProducerOptions: pulsar.ProducerOptions{Topic: "persistent://terra/" + c.ChainID + "/" + rpcwatcher.TopicsMap[eventKind], Schema: jsonSchemaWithProperties},
+		}
+		p, err := watcher_pulsar.NewProducer(&o)
+
+		if err != nil {
+			l.Panicw("unable to start pulsar producer", "error", err)
+		}
+		producers[eventKind] = p
+
+	}
+	options := SyncerOptions{
+		Endpoint:  c.RpcURL,
+		Logger:    l,
+		Database:  presto_db,
+		Producers: producers,
+	}
 	ii := &instance{
 		endpoint: options.Endpoint,
 		logger:   options.Logger,
-		w:        options.Watcher,
+		db:       options.Database,
+		p:        options.Producers,
+		config:   c,
 	}
 	return ii
 }
@@ -97,7 +173,9 @@ func (i *instance) GetBlock(query interface{}) (*block_feed.BlockResult, error) 
 	defer func() {
 		_ = resp.Body.Close()
 	}()
-	//result := init_empty_slice(block_result)
+
+	//Have to init nil slices to 0, to force json field change from "null" to "[]". Pulsar does accept avro schema ["null", "array"] union
+	//for some reason so this is a workaround till i figure out how to handle this properly.
 	if block_result.Block.Data.Txs == nil {
 		block_result.Block.Data.Txs = make(types.Txs, 0)
 	}
@@ -111,80 +189,66 @@ func (i *instance) GetBlock(query interface{}) (*block_feed.BlockResult, error) 
 	return block_result, err
 }
 
-// func init_empty_slice(s interface{}) interface{} {
-// 	val := strctVal(s)
-// 	if s.(*block_feed.BlockResult).Block.Data.Txs == nil {
-// 		s.(*block_feed.BlockResult).Block.Data.Txs := make([]types.Txs, 0)
-// 	}
-// 	spew.Dump(s.(*block_feed.BlockResult).Block.Data.Txs)
-// 	log.Fatal()
-// 	v := val.Type()
-// 	for i := 0; i < val.NumField(); i++ {
-// 		t := v.Field(i)
-// 		if val.Field(i).Kind() == reflect.Slice {
-// 			spew.Dump(t)
-// 		}
+func (i *instance) getPublishedBlockHeights(min int64, max int64) []int64 {
 
-// 	}
-// 	return s
-// }
-
-// func strctVal(s interface{}) reflect.Value {
-// 	v := reflect.ValueOf(s)
-
-// 	// if pointer get the underlying element
-// 	for v.Kind() == reflect.Ptr {
-// 		v = v.Elem()
-// 	}
-
-// 	return v
-// }
-func (i *instance) Init() {
-	db_config := &presto.Config{
-		PrestoURI: "http://root@localhost:8082",
-	}
-
-	db, err := database.New(db_config)
-	if err != nil {
-		i.logger.Errorw("Unable to create presto db handle", "error", err)
-	}
-	i.db = db
-
-}
-
-func (i *instance) Sync() {
-	latest_block, err := i.GetLatestBlock()
-	producer := i.w.Producers[rpcwatcher.EventsBlock]
-
-	if err != nil {
-		i.logger.Errorw("Unable to get latest block", "error", err)
-	}
-	current_height := latest_block.Block.Height
-	min_height := 0
-	published_blocks, err := i.db.Handle.Query(`select __sequence_id__ from pulsar."terra/localterra".newblock where __sequence_id__ > ` + fmt.Sprint(min_height) + ` and __sequence_id__ < ` + fmt.Sprint(current_height))
+	response, err := i.db.Handle.Query(`select __sequence_id__ from pulsar."terra/` + i.config.ChainID + `".newblock where __sequence_id__ > ` + fmt.Sprint(min) + ` and __sequence_id__ < ` + fmt.Sprint(max))
 	if err != nil {
 		i.logger.Errorw("Unable processed blocks from presto/pulsar", "error", err)
 	}
-	for published_blocks.Next() {
-		var height int64
-		if err := published_blocks.Scan(&height); err != nil {
-			i.logger.Fatal(err)
-		}
-		fmt.Printf("height is %d\n", height)
-		BlockResults, err := i.GetBlock(height)
-		if err != nil {
-			i.logger.Fatal(err)
-		}
-		message := pulsar.ProducerMessage{
-			Value:       &BlockResults,
-			SequenceID:  &BlockResults.Block.Height,
-			OrderingKey: strconv.FormatInt(BlockResults.Block.Height, 10),
-			EventTime:   BlockResults.Block.Time,
-		}
-		producer.SendMessage(i.logger, message)
-	}
-	if err := published_blocks.Err(); err != nil {
+	if err := response.Err(); err != nil {
 		log.Fatal(err)
+	}
+	blocks := []int64{}
+	for response.Next() {
+		var height int64
+		if err := response.Scan(&height); err != nil {
+			i.logger.Fatal(err)
+		}
+		blocks = append(blocks, height)
+		fmt.Printf("height is %d\n", height)
+
+	}
+
+	return blocks
+}
+
+func (i *instance) Run() {
+	batch := int64(1000)
+	producer := i.p[rpcwatcher.EventsBlock]
+
+	latest_block, err := i.GetLatestBlock()
+	if err != nil {
+		i.logger.Errorw("Unable to get latest block", "error", err)
+	}
+	blocks := InitBlocks(latest_block.Block.Height, batch)
+
+	for _, block_range := range blocks {
+		published_blocks := i.getPublishedBlockHeights(block_range.min_height, block_range.max_height)
+		for bl_index, block := range block_range.blocks {
+			if slices.Contains(published_blocks, block.height) {
+				i.logger.Debug("Block is already published", "height", block.height)
+				block_range.blocks[bl_index].published = true
+			} else {
+				i.logger.Debugw("Block has not been published yet", "height", block.height)
+				BlockResults, err := i.GetBlockByHeight(block.height)
+				if err != nil {
+					i.logger.Fatal(err)
+				}
+				if BlockResults != nil {
+					message := pulsar.ProducerMessage{
+						Value:       &BlockResults,
+						SequenceID:  &BlockResults.Block.Height,
+						OrderingKey: strconv.FormatInt(BlockResults.Block.Height, 10),
+						EventTime:   BlockResults.Block.Time,
+					}
+					producer.SendMessage(i.logger, message)
+					block_range.blocks[bl_index].published = true
+				} else {
+					i.logger.Error("Unable to get block %d", block.height)
+				}
+			}
+
+		}
 	}
 
 }

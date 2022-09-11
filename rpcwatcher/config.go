@@ -10,6 +10,7 @@ import (
 const (
 	defaultPulsarURL          = "pulsar://localhost:6650"
 	defaultRpcURL             = "http://127.0.0.1:26657"
+	defaultChainID            = "localterra"
 	defaultProfilingServerURL = "localhost:6060"
 )
 
@@ -19,6 +20,7 @@ type Config struct {
 	ProfilingServerURL string `validate:"hostname_port"`
 	ApiURL             string `validate:"required"`
 	PrestoURI          string `validate:"required"`
+	ChainID            string `validate:"required"`
 	Debug              bool
 	JSONLogs           bool
 }
@@ -38,5 +40,6 @@ func ReadConfig() (*Config, error) {
 		"PulsarURL":          defaultPulsarURL,
 		"RpcURL":             defaultRpcURL,
 		"ProfilingServerURL": defaultProfilingServerURL,
+		"ChainID":            defaultChainID,
 	})
 }

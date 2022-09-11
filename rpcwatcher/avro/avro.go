@@ -7,10 +7,6 @@ import (
 	"reflect"
 	"strings"
 	"time"
-
-	"github.com/davecgh/go-spew/spew"
-
-	"github.com/rs/zerolog/log"
 )
 
 var AvroSchemas []AvroSchema
@@ -34,7 +30,7 @@ type AvroField struct {
 	Type interface{} `json:"type"`
 }
 
-func GenerateAvroSchema(model interface{}) string {
+func GenerateAvroSchema(model interface{}) (string, error) {
 
 	typ := strctTyp(reflect.TypeOf(model))
 	root := reflect.StructField{
@@ -43,20 +39,21 @@ func GenerateAvroSchema(model interface{}) string {
 		PkgPath: typ.PkgPath(),
 	}
 	record := getAvroRecords(root, "", true)
+
 	st, err := json.Marshal(record)
-	if err != nil {
-		log.Err(err).Msg("")
-		return ""
-	}
-	return string(st)
+	//fmt.Printf("%s", st)
+	//spew.Dump(record)
+
+	return string(st), err
 }
 
 func getAvroRecords(model reflect.StructField, namespace string, root bool) interface{} {
 	typ := strctTyp(model.Type)
+	//if the type is []type
 	if model.Type.Kind() == reflect.Slice {
-		spew.Dump(model)
-
+		//access the underlying slice type
 		switch model.Type.Elem().Kind() {
+		//if it's a complex type then do something with it - slice is represented as array in avro
 		case reflect.Struct, reflect.Ptr, reflect.Array, reflect.Map, reflect.Slice:
 			typ := model.Type.Elem()
 			struct_type := reflect.StructField{
@@ -65,13 +62,18 @@ func getAvroRecords(model reflect.StructField, namespace string, root bool) inte
 				Type:    typ,
 				PkgPath: typ.PkgPath(),
 			}
-			record := AvroSchema{
-				Type:      "array",
-				Name:      getFieldName(struct_type),
-				Namespace: namespace,
-				Items:     getAvroRecords(struct_type, namespace, false),
+
+			record := []interface{}{
+				"null",
+				AvroSchema{
+					Type:      "array",
+					Name:      getFieldName(struct_type),
+					Namespace: namespace,
+					Items:     getAvroRecords(struct_type, namespace, false),
+				},
 			}
 			return record
+			// if it's a primitive type, return string instead
 		default:
 			return "string"
 		}

@@ -17,7 +17,7 @@ services:
       - pulsar
   pulsar:
     #image: apachepulsar/pulsar:2.10.1
-    #image: apachepulsar/pulsar:latest
+    #image: apachepulsar/pulsar:2.11.0-SNAPSHOT
     #image built for arm64-linux / apple M1
     image: kezhenxu94/pulsar:latest
     container_name: pulsar
