@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/prestodb/presto-go-client/presto"
 	"go.uber.org/zap"
 
@@ -72,7 +71,6 @@ func main() {
 	}
 
 	if err != nil {
-		spew.Dump(err)
 		panic(err)
 	}
 	db_config := &presto.Config{

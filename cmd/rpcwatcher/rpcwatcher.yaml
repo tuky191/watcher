@@ -1,6 +1,0 @@
-PulsarURL: 'pulsar://localhost:6650'
-RpcURL: 'http://127.0.0.1:26657'
-ApiURL: 'http://127.0.0.1:8000'
-PrestoURI: 'http://127.0.0.1:8082'
-Debug: true
-JSONLogs: true
