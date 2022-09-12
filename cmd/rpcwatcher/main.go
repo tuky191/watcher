@@ -22,11 +22,6 @@ var Version = "0.01"
 
 const grpcPort = 9090
 
-type watcherInstance struct {
-	watcher *rpcwatcher.Watcher
-	cancel  context.CancelFunc
-}
-
 func main() {
 	c, err := rpcwatcher.ReadConfig()
 	if err != nil {
@@ -50,7 +45,6 @@ func main() {
 		}()
 	}
 
-	watchers := map[string]watcherInstance{}
 	var chain = cnsmodels.Chain{
 		ID:                  1,
 		Enabled:             true,
@@ -82,11 +76,7 @@ func main() {
 		l.Errorw("Unable to create presto db handle", "error", err)
 	}
 
-	watcher, cancel := startNewWatcher(chain.ChainName, c, l, db, false)
-	watchers[chain.ChainName] = watcherInstance{
-		watcher: watcher,
-		cancel:  cancel,
-	}
+	startNewWatcher(chain.ChainName, c, l, db, false)
 
 	for range time.Tick(1 * time.Second) {
 		continue
@@ -95,40 +85,18 @@ func main() {
 }
 
 func startNewWatcher(chainName string, config *rpcwatcher.Config,
-	l *zap.SugaredLogger, db *database.Instance, isNewChain bool) (*rpcwatcher.Watcher, context.CancelFunc) {
+	l *zap.SugaredLogger, db *database.Instance, isNewChain bool) {
 	eventMappings := rpcwatcher.StandardMappings
-
-	/*
-			for cn := range chainsMap {
-			updatedChainsMap, watcher, cancel, shouldContinue := startNewWatcher(cn, chainsMap, c, s, l, false)
-			chainsMap = updatedChainsMap
-			if shouldContinue {
-				continue
-			}
-
-			watchers[cn] = watcherInstance{
-				watcher: watcher,
-				cancel:  cancel,
-			}
-		}
-	*/
 
 	grpcEndpoint := fmt.Sprintf("%s:%d", "127.0.0.1", grpcPort)
 
 	watcher, err := rpcwatcher.NewWatcher(config.RpcURL, chainName, l, config.ApiURL, grpcEndpoint, rpcwatcher.EventsToSubTo, eventMappings, config, db)
 	if err != nil {
 		l.Errorw("cannot create chain", "error", err)
-		return nil, nil
 	}
 	l.Debugw("connected", "chainName", chainName)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx := context.Background()
 	rpcwatcher.Start(watcher, ctx)
 
-	return watcher, cancel
-}
-
-func endpoint(chainName string) string {
-	return "http://127.0.0.1:26657"
-	//return fmt.Sprintf("http://%s:26657", chainName)
 }
