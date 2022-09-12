@@ -174,10 +174,10 @@ func (i *instance) GetBlock(query interface{}) (*block_feed.BlockResult, error) 
 			return nil
 		},
 		retry.OnRetry(func(n uint, err error) {
-			fmt.Println("Attempt: ", n, ": Retrying...")
+			i.logger.Warnw("Attempt:", "Retrying...", err)
 		}),
 		retry.Delay(time.Duration(10)*time.Second),
-		retry.Attempts(0),
+		retry.Attempts(3),
 	)
 
 	block_result, err := block_feed.ExtractBlockFromRPCResponse(body)
@@ -206,7 +206,8 @@ func (i *instance) getPublishedBlockHeights(min int64, max int64) ([]int64, erro
 	blocks := []int64{}
 	err := retry.Do(
 		func() error {
-			response, err := i.db.Handle.Query(`select __sequence_id__ from pulsar."terra/` + i.config.ChainID + `".newblock where __sequence_id__ > ` + fmt.Sprint(min) + ` and __sequence_id__ < ` + fmt.Sprint(max))
+			i.logger.Debugw(`select __sequence_id__ from pulsar."terra/` + i.config.ChainID + `".newblock where __sequence_id__ >= ` + fmt.Sprint(min) + ` and __sequence_id__ <= ` + fmt.Sprint(max))
+			response, err := i.db.Handle.Query(`select __sequence_id__ from pulsar."terra/` + i.config.ChainID + `".newblock where __sequence_id__ >= ` + fmt.Sprint(min) + ` and __sequence_id__ <= ` + fmt.Sprint(max))
 			if err != nil {
 				i.logger.Errorw("Unable to get processed blocks from presto/pulsar", "error", err)
 				return err
@@ -217,15 +218,14 @@ func (i *instance) getPublishedBlockHeights(min int64, max int64) ([]int64, erro
 					i.logger.Fatal(err)
 				}
 				blocks = append(blocks, height)
-				fmt.Printf("height is %d\n", height)
 			}
 			return nil
 		},
 		retry.OnRetry(func(n uint, err error) {
-			fmt.Println("Attempt: ", n, ": Retrying...")
+			i.logger.Warnw("Attempt:", "Retrying...", err)
 		}),
 		retry.Delay(time.Duration(10)*time.Second),
-		retry.Attempts(0),
+		retry.Attempts(10),
 	)
 
 	return blocks, err
@@ -239,6 +239,8 @@ func (i *instance) Run() {
 	if err != nil {
 		i.logger.Errorw("Unable to get latest block", "error", err)
 	}
+	i.logger.Debugw("Latest block:", "block", latest_block.Block.Height)
+
 	if latest_block.Block.Height < batch {
 		batch = latest_block.Block.Height
 	}
