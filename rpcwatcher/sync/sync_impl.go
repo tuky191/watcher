@@ -3,7 +3,6 @@ package sync
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	"github.com/apache/pulsar-client-go/pulsar"
+	"github.com/avast/retry-go"
 	"github.com/prestodb/presto-go-client/presto"
 	"github.com/tendermint/tendermint/types"
 	block_feed "github.com/terra-money/mantlemint/block_feed"
@@ -135,7 +135,7 @@ func (i *instance) GetLatestBlock() (*block_feed.BlockResult, error) {
 }
 
 func (i *instance) GetBlock(query interface{}) (*block_feed.BlockResult, error) {
-
+	var body []byte
 	ru, err := url.Parse(i.endpoint)
 	if err != nil {
 		i.logger.Errorw("cannot parse url", "url_string", i.endpoint, "error", err)
@@ -150,18 +150,35 @@ func (i *instance) GetBlock(query interface{}) (*block_feed.BlockResult, error) 
 
 	ru.Path = "block"
 	ru.RawQuery = vals.Encode()
-	resp, err := http.Get(ru.String())
-	if err != nil {
-		i.logger.Errorw("failed to retrieve the response", "err", err)
-		return nil, err
-	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	retry.Do(
+		func() error {
+			resp, err := http.Get(ru.String())
+			if err != nil {
+				i.logger.Errorw("failed to retrieve the response", "err", err)
+				return err
+			}
+			if resp.StatusCode != http.StatusOK {
+				i.logger.Errorw("endpoint returned non-200 code", "code", resp.StatusCode)
+				return err
+			}
 
-	if err != nil {
-		i.logger.Errorw("failed to read the response", "err", err)
-		return nil, err
-	}
+			defer func() {
+				_ = resp.Body.Close()
+			}()
+			body, err = ioutil.ReadAll(resp.Body)
+			if err != nil {
+				i.logger.Errorw("failed to read the response", "err", err)
+				return err
+			}
+			return nil
+		},
+		retry.OnRetry(func(n uint, err error) {
+			fmt.Println("Attempt: ", n, ": Retrying...")
+		}),
+		retry.Delay(time.Duration(10)*time.Second),
+		retry.Attempts(0),
+	)
 
 	block_result, err := block_feed.ExtractBlockFromRPCResponse(body)
 
@@ -169,15 +186,6 @@ func (i *instance) GetBlock(query interface{}) (*block_feed.BlockResult, error) 
 		i.logger.Errorw("failed to unmarshal response", "err", err)
 
 	}
-
-	if resp.StatusCode != http.StatusOK {
-		i.logger.Errorw("endpoint returned non-200 code", "code", resp.StatusCode)
-		return nil, err
-	}
-
-	defer func() {
-		_ = resp.Body.Close()
-	}()
 
 	//Have to init nil slices to 0, to force json field change from "null" to "[]". Pulsar does accept avro schema ["null", "array"] union
 	//for some reason so this is a workaround till i figure out how to handle this properly.
@@ -194,27 +202,33 @@ func (i *instance) GetBlock(query interface{}) (*block_feed.BlockResult, error) 
 	return block_result, err
 }
 
-func (i *instance) getPublishedBlockHeights(min int64, max int64) []int64 {
-
-	response, err := i.db.Handle.Query(`select __sequence_id__ from pulsar."terra/` + i.config.ChainID + `".newblock where __sequence_id__ >= ` + fmt.Sprint(min) + ` and __sequence_id__ <= ` + fmt.Sprint(max))
-	if err != nil {
-		i.logger.Errorw("Unable processed blocks from presto/pulsar", "error", err)
-	}
-	if err := response.Err(); err != nil {
-		log.Fatal(err)
-	}
+func (i *instance) getPublishedBlockHeights(min int64, max int64) ([]int64, error) {
 	blocks := []int64{}
-	for response.Next() {
-		var height int64
-		if err := response.Scan(&height); err != nil {
-			i.logger.Fatal(err)
-		}
-		blocks = append(blocks, height)
-		fmt.Printf("height is %d\n", height)
+	err := retry.Do(
+		func() error {
+			response, err := i.db.Handle.Query(`select __sequence_id__ from pulsar."terra/` + i.config.ChainID + `".newblock where __sequence_id__ > ` + fmt.Sprint(min) + ` and __sequence_id__ < ` + fmt.Sprint(max))
+			if err != nil {
+				i.logger.Errorw("Unable to get processed blocks from presto/pulsar", "error", err)
+				return err
+			}
+			for response.Next() {
+				var height int64
+				if err := response.Scan(&height); err != nil {
+					i.logger.Fatal(err)
+				}
+				blocks = append(blocks, height)
+				fmt.Printf("height is %d\n", height)
+			}
+			return nil
+		},
+		retry.OnRetry(func(n uint, err error) {
+			fmt.Println("Attempt: ", n, ": Retrying...")
+		}),
+		retry.Delay(time.Duration(10)*time.Second),
+		retry.Attempts(0),
+	)
 
-	}
-
-	return blocks
+	return blocks, err
 }
 
 func (i *instance) Run() {
@@ -231,10 +245,11 @@ func (i *instance) Run() {
 	blocks := InitBlocks(latest_block.Block.Height, batch)
 
 	for _, block_range := range blocks {
-		published_blocks := i.getPublishedBlockHeights(block_range.min_height, block_range.max_height)
+		published_blocks, err := i.getPublishedBlockHeights(block_range.min_height, block_range.max_height)
+		if err != nil {
+			i.logger.Fatalw("Failed to query pulsar sql for published blocks", "error", err)
+		}
 		for bl_index, block := range block_range.blocks {
-			//			spew.Dump(published_blocks)
-			//			spew.Dump(block.height)
 			if slices.Contains(published_blocks, block.height) {
 				i.logger.Debugw("Block is already published: ", "height", block.height)
 				block_range.blocks[bl_index].published = true

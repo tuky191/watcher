@@ -38,6 +38,7 @@ require (
 	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/apache/pulsar-client-go v0.9.0-candidate-1.0.20220903022036-68e43175f2c4
 	github.com/ardielle/ardielle-go v1.5.2 // indirect
+	github.com/avast/retry-go v3.0.0+incompatible
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/btcsuite/btcd v0.22.1 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.1.2 // indirect
