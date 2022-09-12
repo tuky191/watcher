@@ -44,12 +44,17 @@ func InitBlocks(height int64, size int64) []block_range {
 	result := []block_range{}
 	for i := int64(0); i <= height; i += size {
 		blocks := []block{}
-		block_range := block_range{
-			min_height: i,
-			max_height: i + size,
+		var limit int64
+		if i+size < height {
+			limit = i + size
+		} else {
+			limit = height
 		}
-
-		for k := i; k <= i+size; k++ {
+		block_range := block_range{
+			min_height: i + 1,
+			max_height: limit,
+		}
+		for k := i + 1; k <= limit; k++ {
 			blocks = append(blocks, block{height: k, published: false})
 		}
 		block_range.blocks = blocks
@@ -191,7 +196,7 @@ func (i *instance) GetBlock(query interface{}) (*block_feed.BlockResult, error) 
 
 func (i *instance) getPublishedBlockHeights(min int64, max int64) []int64 {
 
-	response, err := i.db.Handle.Query(`select __sequence_id__ from pulsar."terra/` + i.config.ChainID + `".newblock where __sequence_id__ > ` + fmt.Sprint(min) + ` and __sequence_id__ < ` + fmt.Sprint(max))
+	response, err := i.db.Handle.Query(`select __sequence_id__ from pulsar."terra/` + i.config.ChainID + `".newblock where __sequence_id__ >= ` + fmt.Sprint(min) + ` and __sequence_id__ <= ` + fmt.Sprint(max))
 	if err != nil {
 		i.logger.Errorw("Unable processed blocks from presto/pulsar", "error", err)
 	}
@@ -213,23 +218,28 @@ func (i *instance) getPublishedBlockHeights(min int64, max int64) []int64 {
 }
 
 func (i *instance) Run() {
-	batch := int64(1000)
+	batch := int64(300)
 	producer := i.p[rpcwatcher.EventsBlock]
 
 	latest_block, err := i.GetLatestBlock()
 	if err != nil {
 		i.logger.Errorw("Unable to get latest block", "error", err)
 	}
+	if latest_block.Block.Height < batch {
+		batch = latest_block.Block.Height
+	}
 	blocks := InitBlocks(latest_block.Block.Height, batch)
 
 	for _, block_range := range blocks {
 		published_blocks := i.getPublishedBlockHeights(block_range.min_height, block_range.max_height)
 		for bl_index, block := range block_range.blocks {
+			//			spew.Dump(published_blocks)
+			//			spew.Dump(block.height)
 			if slices.Contains(published_blocks, block.height) {
-				i.logger.Debug("Block is already published", "height", block.height)
+				i.logger.Debugw("Block is already published: ", "height", block.height)
 				block_range.blocks[bl_index].published = true
 			} else {
-				i.logger.Debugw("Block has not been published yet", "height", block.height)
+				i.logger.Debugw("Block has not been published yet: ", "height", block.height)
 				BlockResults, err := i.GetBlockByHeight(block.height)
 				if err != nil {
 					i.logger.Fatal(err)
