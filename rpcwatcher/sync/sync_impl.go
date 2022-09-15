@@ -13,6 +13,12 @@ import (
 	"strconv"
 	"time"
 
+	abci "github.com/tendermint/tendermint/abci/types"
+
+	tmjson "github.com/tendermint/tendermint/libs/json"
+
+	coretypes "github.com/tendermint/tendermint/rpc/core/types"
+
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/avast/retry-go"
 	"github.com/prestodb/presto-go-client/presto"
@@ -135,7 +141,6 @@ func (i *instance) GetLatestBlock() (*block_feed.BlockResult, error) {
 }
 
 func (i *instance) GetBlock(query interface{}) (*block_feed.BlockResult, error) {
-	var body []byte
 	ru, err := url.Parse(i.endpoint)
 	if err != nil {
 		i.logger.Errorw("cannot parse url", "url_string", i.endpoint, "error", err)
@@ -151,6 +156,31 @@ func (i *instance) GetBlock(query interface{}) (*block_feed.BlockResult, error) 
 	ru.Path = "block"
 	ru.RawQuery = vals.Encode()
 
+	body := i.fetchResponse(ru)
+	block_result, err := block_feed.ExtractBlockFromRPCResponse(body)
+
+	if err != nil {
+		i.logger.Errorw("failed to unmarshal response", "err", err)
+
+	}
+
+	//Have to init nil slices to 0, to force json field change from "null" to "[]". Pulsar does accept avro schema ["null", "array"] union
+	//for some reason so this is a workaround till i figure out how to handle this properly.
+	if block_result.Block.Data.Txs == nil {
+		block_result.Block.Data.Txs = make(types.Txs, 0)
+	}
+	if block_result.Block.Evidence.Evidence == nil {
+		block_result.Block.Evidence.Evidence = make(types.EvidenceList, 0)
+	}
+	if block_result.Block.LastCommit.Signatures == nil {
+		block_result.Block.LastCommit.Signatures = make([]types.CommitSig, 0)
+	}
+
+	return block_result, err
+}
+
+func (i *instance) fetchResponse(ru *url.URL) []byte {
+	var body []byte
 	retry.Do(
 		func() error {
 			resp, err := http.Get(ru.String())
@@ -179,27 +209,7 @@ func (i *instance) GetBlock(query interface{}) (*block_feed.BlockResult, error) 
 		retry.Delay(time.Duration(10)*time.Second),
 		retry.Attempts(3),
 	)
-
-	block_result, err := block_feed.ExtractBlockFromRPCResponse(body)
-
-	if err != nil {
-		i.logger.Errorw("failed to unmarshal response", "err", err)
-
-	}
-
-	//Have to init nil slices to 0, to force json field change from "null" to "[]". Pulsar does accept avro schema ["null", "array"] union
-	//for some reason so this is a workaround till i figure out how to handle this properly.
-	if block_result.Block.Data.Txs == nil {
-		block_result.Block.Data.Txs = make(types.Txs, 0)
-	}
-	if block_result.Block.Evidence.Evidence == nil {
-		block_result.Block.Evidence.Evidence = make(types.EvidenceList, 0)
-	}
-	if block_result.Block.LastCommit.Signatures == nil {
-		block_result.Block.LastCommit.Signatures = make([]types.CommitSig, 0)
-	}
-
-	return block_result, err
+	return body
 }
 
 func (i *instance) getPublishedBlockHeights(min int64, max int64) ([]int64, error) {
@@ -231,9 +241,56 @@ func (i *instance) getPublishedBlockHeights(min int64, max int64) ([]int64, erro
 	return blocks, err
 }
 
+func (i *instance) GetTxsFromBlockByHeight(height int64) []abci.TxResult {
+
+	block, err := i.GetBlockByHeight(height)
+	if err != nil {
+		i.logger.Errorw("Unable to get block from rpc", "error", err)
+	}
+
+	Txs := make([]abci.TxResult, 0)
+	for _, txHashSlice := range block.Block.Data.Txs {
+		Txs = append(Txs, i.getTx(txHashSlice))
+	}
+	return Txs
+}
+
+func (i *instance) getTx(txHashSlice types.Tx) abci.TxResult {
+
+	//curl -X GET "http://127.0.0.1:26657/tx?hash=0xABD1E4628F25750BB0E6DFEA827EC68730CEFDB118584AAF13DDC21440D473A2" -H  "accept: application/json"
+	ru, err := url.Parse(i.endpoint)
+	if err != nil {
+		i.logger.Errorw("cannot parse url", "url_string", i.endpoint, "error", err)
+	}
+	vals := url.Values{}
+	hash := fmt.Sprintf("0x%X", txHashSlice.Hash())
+
+	vals.Set("hash", hash)
+	i.logger.Debugw("asking for tx", "hash", hash)
+
+	ru.Path = "tx"
+	ru.RawQuery = vals.Encode()
+
+	body := i.fetchResponse(ru)
+
+	result_tx := new(struct {
+		Result *coretypes.ResultTx `json:"result"`
+	})
+	if err := tmjson.Unmarshal(body, result_tx); err != nil {
+		i.logger.Errorw("cannot extract tx result ", "error", err)
+	}
+
+	result := abci.TxResult{
+		Height: result_tx.Result.Height,
+		Index:  result_tx.Result.Index,
+		Tx:     result_tx.Result.Tx,
+		Result: result_tx.Result.TxResult,
+	}
+	return result
+}
+
 func (i *instance) Run() {
 	batch := int64(300)
-	producer := i.p[rpcwatcher.EventsBlock]
 
 	latest_block, err := i.GetLatestBlock()
 	if err != nil {
@@ -268,11 +325,23 @@ func (i *instance) Run() {
 						OrderingKey: strconv.FormatInt(BlockResults.Block.Height, 10),
 						EventTime:   BlockResults.Block.Time,
 					}
-					producer.SendMessage(i.logger, message)
+					i.p[rpcwatcher.EventsBlock].SendMessage(i.logger, message)
+					TxResults := i.GetTxsFromBlockByHeight(block.height)
+					for _, txresult := range TxResults {
+						message := pulsar.ProducerMessage{
+							Value:       &txresult,
+							SequenceID:  &txresult.Height,
+							OrderingKey: strconv.FormatInt(txresult.Height, 10),
+							EventTime:   BlockResults.Block.Time,
+						}
+						i.p[rpcwatcher.EventsTx].SendMessage(i.logger, message)
+					}
 					block_range.blocks[bl_index].published = true
+
 				} else {
 					i.logger.Error("Unable to get block %d", block.height)
 				}
+
 			}
 
 		}

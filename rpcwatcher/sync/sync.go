@@ -5,6 +5,8 @@ import (
 
 	watcher_pulsar "rpc_watcher/rpcwatcher/pulsar"
 
+	abci "github.com/tendermint/tendermint/abci/types"
+
 	block_feed "github.com/terra-money/mantlemint/block_feed"
 	"go.uber.org/zap"
 )
@@ -20,5 +22,6 @@ type Syncer interface {
 	GetBlockByHeight(height int64) (*block_feed.BlockResult, error)
 	GetLatestBlock() (*block_feed.BlockResult, error)
 	GetBlock(query interface{}) (*block_feed.BlockResult, error)
+	GetTxsFromBlockByHeight(height int64) []abci.TxResult
 	Run()
 }
