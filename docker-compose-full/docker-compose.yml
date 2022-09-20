@@ -260,9 +260,11 @@ services:
     environment:
       clusterName: test
       zookeeperServers: zk1:2181,zk2:2181,zk3:2181
-      configurationStore: zk1:2181,zk2:2181,zk3:2181
-      webSocketServiceEnabled: 'false'
-      functionsWorkerEnabled: 'false'
+      configurationStoreServers: zk1:2181,zk2:2181,zk3:2181
+      pulsar.zookeeper-uri: zk1:2181,zk2:2181,zk3:2181
+      coordinator: 'true'
+      pulsar.broker-service-url: http://broker1:6650
+      pulsar.web-service-url: http://broker1:8080
     volumes:
       - pulsardatabroker3:/pulsar/data
       - pulsarconfbroker3:/pulsar/conf
