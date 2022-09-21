@@ -290,7 +290,7 @@ func (i *instance) getTx(txHashSlice types.Tx) abci.TxResult {
 }
 
 func (i *instance) Run() {
-	batch := int64(300)
+	batch := int64(100000)
 
 	latest_block, err := i.GetLatestBlock()
 	if err != nil {
