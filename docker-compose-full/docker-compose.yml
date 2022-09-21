@@ -406,7 +406,7 @@ services:
         exec bin/pulsar sql-worker run
     environment:
       clusterName: test
-      presto.version: 334
+      #      presto.version: 334
       node.id: 7f2f2f24-84ea-48ae-a499-1de0957f05a5
       zookeeperServers: zk1:2181,zk2:2181,zk3:2181
       configurationStoreServers: zk1:2181,zk2:2181,zk3:2181
@@ -455,7 +455,7 @@ services:
         exec bin/pulsar sql-worker run
     environment:
       clusterName: test
-      presto.version: 334
+      #     presto.version: 334
       node.id: 0ff452f4-dd20-4f90-bcbd-9ae666edb958
       zookeeperServers: zk1:2181,zk2:2181,zk3:2181
       configurationStoreServers: zk1:2181,zk2:2181,zk3:2181
@@ -505,7 +505,7 @@ services:
         exec bin/pulsar sql-worker run
     environment:
       clusterName: test
-      presto.version: 334
+      #    presto.version: 334
       node.id: 1c0d1a15-a9d4-40f5-89b5-be686b4feeab
       zookeeperServers: zk1:2181,zk2:2181,zk3:2181
       configurationStoreServers: zk1:2181,zk2:2181,zk3:2181
@@ -555,7 +555,7 @@ services:
         exec bin/pulsar sql-worker run
     environment:
       clusterName: test
-      presto.version: 334
+      #   presto.version: 334
       node.id: 9d8f2738-ab33-4ec5-a6df-2d3a17746030
       zookeeperServers: zk1:2181,zk2:2181,zk3:2181
       configurationStoreServers: zk1:2181,zk2:2181,zk3:2181
