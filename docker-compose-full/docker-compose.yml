@@ -362,7 +362,7 @@ services:
       pulsar.broker-service-url: http://broker1:6650,broker2:6650,broker3:6650
       pulsar.web-service-url: http://broker1:8080,broker2:8080,broker3:8080
       coordinator: true
-      node-scheduler.include-coordinator: true
+      node-scheduler.include-coordinator: false
       query.max-memory: 50GB
       query.max-memory-per-node: 1GB
       discovery-server.enabled: true
@@ -406,6 +406,7 @@ services:
         exec bin/pulsar sql-worker run
     environment:
       clusterName: test
+      presto.version: 334
       node.id: 7f2f2f24-84ea-48ae-a499-1de0957f05a5
       zookeeperServers: zk1:2181,zk2:2181,zk3:2181
       configurationStoreServers: zk1:2181,zk2:2181,zk3:2181
@@ -454,6 +455,7 @@ services:
         exec bin/pulsar sql-worker run
     environment:
       clusterName: test
+      presto.version: 334
       node.id: 0ff452f4-dd20-4f90-bcbd-9ae666edb958
       zookeeperServers: zk1:2181,zk2:2181,zk3:2181
       configurationStoreServers: zk1:2181,zk2:2181,zk3:2181
@@ -469,6 +471,106 @@ services:
     volumes:
       - pulsardatasql3:/pulsar/data
       - pulsarconfsql3:/pulsar/conf
+      - ./scripts/apply-config-from-env-with-prefix.py:/pulsar/bin/apply-config-from-env-with-prefix.py
+      - ./scripts/apply-config-from-env.py:/pulsar/bin/apply-config-from-env.py
+    depends_on:
+      - zk1
+      - zk2
+      - zk3
+      - pulsar-init
+      - bk1
+      - bk2
+      - bk3
+      - broker1
+      - proxy1
+      - sql1
+    networks:
+      pulsar:
+  sql4:
+    hostname: sql4
+    container_name: sql4
+    image: apachepulsar/pulsar-all:latest
+    restart: on-failure
+    command:
+      - /bin/bash
+      - -c
+      - |
+        echo 'coordinator=false' >> conf/presto/config.properties
+        sed -i 's,^\(discovery-server.*\),#\1,' conf/presto/config.properties
+        sed -i 's,^\(scheduler.*\),#\1,' conf/presto/config.properties
+        bin/apply-config-from-env-with-prefix.py SQL_PREFIX_ conf/presto/catalog/pulsar.properties
+        bin/apply-config-from-env-with-prefix.py SQL_PREFIX_ conf/presto/config.properties
+        bin/apply-config-from-env.py conf/pulsar_env.sh
+        bin/watch-znode.py -z $$zookeeperServers -p /initialized-$$clusterName -w
+        exec bin/pulsar sql-worker run
+    environment:
+      clusterName: test
+      presto.version: 334
+      node.id: 1c0d1a15-a9d4-40f5-89b5-be686b4feeab
+      zookeeperServers: zk1:2181,zk2:2181,zk3:2181
+      configurationStoreServers: zk1:2181,zk2:2181,zk3:2181
+      pulsar.zookeeper-uri: zk1:2181,zk2:2181,zk3:2181
+      coordinator: false
+      #node-scheduler.include-coordinator: false
+      http-server.http.port: 8081
+      query.max-memory: 50GB
+      query.max-memory-per-node: 1GB
+      discovery.uri: http://sql1:8081
+      pulsar.broker-service-url: http://broker1:6650,broker2:6650,broker3:6650
+      pulsar.web-service-url: http://broker1:8080,broker2:8080,broker3:8080
+    volumes:
+      - pulsardatasql4:/pulsar/data
+      - pulsarconfsql4:/pulsar/conf
+      - ./scripts/apply-config-from-env-with-prefix.py:/pulsar/bin/apply-config-from-env-with-prefix.py
+      - ./scripts/apply-config-from-env.py:/pulsar/bin/apply-config-from-env.py
+    depends_on:
+      - zk1
+      - zk2
+      - zk3
+      - pulsar-init
+      - bk1
+      - bk2
+      - bk3
+      - broker1
+      - proxy1
+      - sql1
+    networks:
+      pulsar:
+  sql5:
+    hostname: sql5
+    container_name: sql5
+    image: apachepulsar/pulsar-all:latest
+    restart: on-failure
+    command:
+      - /bin/bash
+      - -c
+      - |
+        echo 'coordinator=false' >> conf/presto/config.properties
+        sed -i 's,^\(discovery-server.*\),#\1,' conf/presto/config.properties
+        sed -i 's,^\(scheduler.*\),#\1,' conf/presto/config.properties
+        bin/apply-config-from-env-with-prefix.py SQL_PREFIX_ conf/presto/catalog/pulsar.properties
+        bin/apply-config-from-env-with-prefix.py SQL_PREFIX_ conf/presto/config.properties
+        bin/apply-config-from-env.py conf/pulsar_env.sh
+        bin/watch-znode.py -z $$zookeeperServers -p /initialized-$$clusterName -w
+        exec bin/pulsar sql-worker run
+    environment:
+      clusterName: test
+      presto.version: 334
+      node.id: 9d8f2738-ab33-4ec5-a6df-2d3a17746030
+      zookeeperServers: zk1:2181,zk2:2181,zk3:2181
+      configurationStoreServers: zk1:2181,zk2:2181,zk3:2181
+      pulsar.zookeeper-uri: zk1:2181,zk2:2181,zk3:2181
+      coordinator: false
+      #node-scheduler.include-coordinator: false
+      http-server.http.port: 8081
+      query.max-memory: 50GB
+      query.max-memory-per-node: 1GB
+      discovery.uri: http://sql1:8081
+      pulsar.broker-service-url: http://broker1:6650,broker2:6650,broker3:6650
+      pulsar.web-service-url: http://broker1:8080,broker2:8080,broker3:8080
+    volumes:
+      - pulsardatasql5:/pulsar/data
+      - pulsarconfsql5:/pulsar/conf
       - ./scripts/apply-config-from-env-with-prefix.py:/pulsar/bin/apply-config-from-env-with-prefix.py
       - ./scripts/apply-config-from-env.py:/pulsar/bin/apply-config-from-env.py
     depends_on:
@@ -508,12 +610,14 @@ volumes:
 
   pulsardatasql1:
   pulsarconfsql1:
-
   pulsardatasql2:
   pulsarconfsql2:
-
   pulsardatasql3:
   pulsarconfsql3:
+  pulsardatasql4:
+  pulsarconfsql4:
+  pulsardatasql5:
+  pulsarconfsql5:
   # manager:
   #   hostname: manager
   #   container_name: manager
