@@ -537,6 +537,42 @@ services:
       - sql1
     networks:
       pulsar:
+
+  fnc1:
+    hostname: fnc1
+    container_name: fnc1
+    image: apachepulsar/pulsar-all:latest
+    restart: on-failure
+    command: >
+      bash -c "bin/apply-config-from-env.py conf/client.conf && \
+              bin/gen-yml-from-env.py conf/functions_worker.yml && \
+              bin/apply-config-from-env.py conf/pulsar_env.sh && \
+              bin/watch-znode.py -z $$zookeeperServers -p /initialized-$$clusterName -w && \
+              exec bin/pulsar functions-worker"
+    environment:
+      clusterName: test
+      zookeeperServers: zk1:2181,zk2:2181,zk3:2181
+      # Requires PF_ prefix for some reason in the code
+      PF_pulsarFunctionsCluster: test
+      PF_workerId: fnc1
+      # This setting does not appear to accept more than one host
+      PF_configurationStoreServers: zk1:2181
+      PF_pulsarServiceUrl: pulsar://proxy1:6650
+      PF_pulsarWebServiceUrl: http://proxy1:8080
+    volumes:
+      - ./scripts/apply-config-from-env.py:/pulsar/bin/apply-config-from-env.py
+    depends_on:
+      - zk1
+      - zk2
+      - zk3
+      - pulsar-init
+      - bk1
+      - bk2
+      - bk3
+      - broker1
+      - proxy1
+    networks:
+      pulsar:
 volumes:
   pulsardatazk1:
   pulsarconfzk1:
@@ -639,42 +675,5 @@ volumes:
   #     USERNAME: 'pulsar'
   #     PASSWORD: 'pulsar'
   #     LOG_LEVEL: 'DEBUG'
-  #   networks:
-  #     pulsar:
-
-  # fnc1:
-  #   hostname: fnc1
-  #   container_name: fnc1
-  #   image: apachepulsar/pulsar-all:latest
-  #   restart: on-failure
-  #   command: >
-  #     bash -c "bin/apply-config-from-env.py conf/client.conf && \
-  #              bin/gen-yml-from-env.py conf/functions_worker.yml && \
-  #              bin/apply-config-from-env.py conf/pulsar_env.sh && \
-  #              bin/watch-znode.py -z $$zookeeperServers -p /initialized-$$clusterName -w && \
-  #              exec bin/pulsar functions-worker"
-  #   environment:
-  #     clusterName: test
-  #     zookeeperServers: zk1:2181,zk2:2181,zk3:2181
-  #     # Requires PF_ prefix for some reason in the code
-  #     PF_pulsarFunctionsCluster: test
-  #     PF_workerId: fnc1
-  #     PF_pulsarFunctionsCluster: test
-  #     # This setting does not appear to accept more than one host
-  #     PF_configurationStoreServers: zk1:2181
-  #     PF_pulsarServiceUrl: pulsar://proxy1:6650
-  #     PF_pulsarWebServiceUrl: http://proxy1:8080
-  #   volumes:
-  #     - ./scripts/apply-config-from-env.py:/pulsar/bin/apply-config-from-env.py
-  #   depends_on:
-  #     - zk1
-  #     - zk2
-  #     - zk3
-  #     - pulsar-init
-  #     - bk1
-  #     - bk2
-  #     - bk3
-  #     - broker1
-  #     - proxy1
   #   networks:
   #     pulsar:
