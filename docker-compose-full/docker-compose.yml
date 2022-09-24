@@ -365,7 +365,7 @@ services:
       coordinator: true
       node-scheduler.include-coordinator: false
       query.max-memory: 50GB
-      query.max-memory-per-node: 1GB
+      query.max-memory-per-node: 10GB
       discovery-server.enabled: true
       discovery.uri: http://sql1:8081
       http-server.http.port: 8081
@@ -415,7 +415,7 @@ services:
       coordinator: false
       http-server.http.port: 8081
       query.max-memory: 50GB
-      query.max-memory-per-node: 1GB
+      query.max-memory-per-node: 10GB
       discovery.uri: http://sql1:8081
       pulsar.broker-service-url: http://broker1:6650,broker2:6650,broker3:6650
       pulsar.web-service-url: http://broker1:8080,broker2:8080,broker3:8080
@@ -464,8 +464,8 @@ services:
       coordinator: false
       #node-scheduler.include-coordinator: false
       http-server.http.port: 8081
-      query.max-memory: 10GB
-      query.max-memory-per-node: 5GB
+      query.max-memory: 50GB
+      query.max-memory-per-node: 10GB
       discovery.uri: http://sql1:8081
       pulsar.broker-service-url: http://broker2:6650,broker1:6650,broker3:6650
       pulsar.web-service-url: http://broker2:8080,broker1:8080,broker3:8080
@@ -514,8 +514,8 @@ services:
       coordinator: false
       #node-scheduler.include-coordinator: false
       http-server.http.port: 8081
-      query.max-memory: 10GB
-      query.max-memory-per-node: 5GB
+      query.max-memory: 50GB
+      query.max-memory-per-node: 10GB
       discovery.uri: http://sql1:8081
       pulsar.broker-service-url: http://broker3:6650,broker2:6650,broker1:6650
       pulsar.web-service-url: http://broker3:8080,broker2:8080,broker1:8080
