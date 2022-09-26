@@ -698,6 +698,7 @@ services:
     environment:
       - node.name=es01
       - cluster.name=${CLUSTER_NAME}
+      - ES_JAVA_OPTS=-Xms750m -Xmx750m
       - cluster.initial_master_nodes=es01,es02,es03
       - discovery.seed_hosts=es02,es03
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
@@ -741,6 +742,7 @@ services:
       - cluster.name=${CLUSTER_NAME}
       - cluster.initial_master_nodes=es01,es02,es03
       - discovery.seed_hosts=es01,es03
+      - ES_JAVA_OPTS=-Xms750m -Xmx750m
       - bootstrap.memory_lock=true
       - xpack.security.enabled=true
       - xpack.security.http.ssl.enabled=true
@@ -778,6 +780,7 @@ services:
       - esdata03:/usr/share/elasticsearch/data
     environment:
       - node.name=es03
+      - ES_JAVA_OPTS=-Xms750m -Xmx750m
       - cluster.name=${CLUSTER_NAME}
       - cluster.initial_master_nodes=es01,es02,es03
       - discovery.seed_hosts=es01,es02
