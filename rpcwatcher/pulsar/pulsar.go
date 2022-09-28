@@ -7,12 +7,16 @@ import (
 
 type PulsarOptions struct {
 	ProducerOptions  pulsar.ProducerOptions
+	ReaderOptions    pulsar.ReaderOptions
 	ClientOptions    pulsar.ClientOptions
 	TableViewOptions pulsar.TableViewOptions
 }
 
 type Producer interface {
 	SendMessage(log *zap.SugaredLogger, message pulsar.ProducerMessage)
+}
+type Reader interface {
+	ReadLastMessage(log *zap.SugaredLogger, result interface{}) error
 }
 
 type TableView interface {

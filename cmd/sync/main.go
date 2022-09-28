@@ -5,6 +5,8 @@ import (
 
 	"rpc_watcher/rpcwatcher/logging"
 	"rpc_watcher/rpcwatcher/sync"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 var Version = "0.01"
@@ -21,6 +23,12 @@ func main() {
 	l.Infow("blocksync", "version", Version)
 
 	sync := sync.New(c, l)
-	sync.Run()
+	result, err := sync.GetLatestPublishedBlock()
+	if err != nil {
+		panic(err)
+	}
+	spew.Dump(result)
+
+	//sync.Run()
 
 }

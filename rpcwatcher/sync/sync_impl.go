@@ -29,11 +29,13 @@ import (
 )
 
 type instance struct {
-	endpoint string
-	logger   *zap.SugaredLogger
-	db       *database.Instance
-	p        map[string]watcher_pulsar.Producer
-	config   *rpcwatcher.Config
+	endpoint  string
+	is_synced bool
+	logger    *zap.SugaredLogger
+	db        *database.Instance
+	p         map[string]watcher_pulsar.Producer
+	r         map[string]watcher_pulsar.Reader
+	config    *rpcwatcher.Config
 }
 
 type block struct {
@@ -82,6 +84,8 @@ func New(c *rpcwatcher.Config, l *zap.SugaredLogger) Syncer {
 	}
 
 	producers := map[string]watcher_pulsar.Producer{}
+	readers := map[string]watcher_pulsar.Reader{}
+
 	for _, eventKind := range rpcwatcher.EventsToSubTo {
 
 		schema, err := avro.GenerateAvroSchema(rpcwatcher.EventTypeMap[eventKind])
@@ -97,13 +101,18 @@ func New(c *rpcwatcher.Config, l *zap.SugaredLogger) Syncer {
 				ConnectionTimeout: 30 * time.Second,
 			},
 			ProducerOptions: pulsar.ProducerOptions{Topic: "persistent://terra/" + c.ChainID + "/" + rpcwatcher.TopicsMap[eventKind], Schema: jsonSchemaWithProperties},
+			ReaderOptions:   pulsar.ReaderOptions{Topic: "persistent://terra/" + c.ChainID + "/" + rpcwatcher.TopicsMap[eventKind], Schema: jsonSchemaWithProperties, StartMessageID: pulsar.LatestMessageID(), StartMessageIDInclusive: true},
 		}
 		p, err := watcher_pulsar.NewProducer(&o)
-
 		if err != nil {
 			l.Panicw("unable to start pulsar producer", "error", err)
 		}
 		producers[eventKind] = p
+		r, err := watcher_pulsar.NewReader(&o)
+		if err != nil {
+			l.Panicw("unable to create pulsar reader", "error", err)
+		}
+		readers[eventKind] = r
 
 	}
 	options := SyncerOptions{
@@ -111,13 +120,16 @@ func New(c *rpcwatcher.Config, l *zap.SugaredLogger) Syncer {
 		Logger:    l,
 		Database:  presto_db,
 		Producers: producers,
+		Readers:   readers,
 	}
 	ii := &instance{
-		endpoint: options.Endpoint,
-		logger:   options.Logger,
-		db:       options.Database,
-		p:        options.Producers,
-		config:   c,
+		endpoint:  options.Endpoint,
+		logger:    options.Logger,
+		db:        options.Database,
+		p:         options.Producers,
+		r:         options.Readers,
+		config:    c,
+		is_synced: false,
 	}
 	return ii
 }
@@ -125,9 +137,19 @@ func New(c *rpcwatcher.Config, l *zap.SugaredLogger) Syncer {
 func (i *instance) GetBlockByHeight(height int64) (*block_feed.BlockResult, error) {
 	result, err := i.GetBlock(height)
 	if err != nil {
-		i.logger.Errorw("cannot get block from rcp", "block", height, "error", err)
+		i.logger.Errorw("cannot get block from rpc", "block", height, "error", err)
 		return nil, err
 	}
+	return result, nil
+}
+
+func (i *instance) GetLatestPublishedBlock() (*block_feed.BlockResult, error) {
+	result := &block_feed.BlockResult{}
+	if err := i.r[rpcwatcher.EventsBlock].ReadLastMessage(i.logger, result); err != nil {
+		i.logger.Errorw("cannot get latest published block", "error", err)
+		return nil, err
+	}
+
 	return result, nil
 }
 
