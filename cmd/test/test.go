@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"rpc_watcher/rpcwatcher"
 	"rpc_watcher/rpcwatcher/avro"
 	"rpc_watcher/rpcwatcher/logging"
 	producer "rpc_watcher/rpcwatcher/pulsar"
@@ -52,15 +53,21 @@ func main() {
 	//spew.Dump(result)
 
 	//log.Fatal()
-	schema := avro.GenerateAvroSchema(&block_feed.BlockResult{})
+	schema, _ := avro.GenerateAvroSchema(&block_feed.BlockResult{})
 
 	//schema := avro.GenerateAvroSchema(types.EventDataTx{})
 	//spew.Dump(schema)
-	syncer_options := sync.SyncerOptions{
-		Endpoint: "http://127.0.0.1:26657",
-		Logger:   l,
+	c, err := rpcwatcher.ReadConfig()
+	if err != nil {
+		panic(err)
 	}
-	sync_instance := sync.New(syncer_options)
+	sync_instance := sync.New(c, l)
+	latest, _ := sync_instance.GetLatestPublishedBlock()
+	if latest.Block == nil {
+		spew.Dump(latest.Block)
+	}
+
+	log.Fatal()
 	// block, err := sync_instance.GetBlockByHeight(1)
 	// if err != nil {
 	// 	l.Errorw("Unable to get block", "url_string", "error", err)

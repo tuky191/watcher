@@ -13,9 +13,9 @@ import (
 
 	_ "net/http/pprof"
 	"rpc_watcher/rpcwatcher/database"
+	syncer_types "rpc_watcher/rpcwatcher/helper"
 	"rpc_watcher/rpcwatcher/logging"
-
-	cnsmodels "github.com/emerishq/demeris-backend-models/cns"
+	"rpc_watcher/rpcwatcher/sync"
 )
 
 var Version = "0.01"
@@ -45,38 +45,22 @@ func main() {
 		}()
 	}
 
-	var chain = cnsmodels.Chain{
-		ID:                  1,
-		Enabled:             true,
-		ChainName:           "localterra",
-		Logo:                "localterra",
-		DisplayName:         "localterra",
-		PrimaryChannel:      map[string]string{},
-		Denoms:              []cnsmodels.Denom{},
-		DemerisAddresses:    []string{},
-		GenesisHash:         "",
-		NodeInfo:            cnsmodels.NodeInfo{},
-		ValidBlockThresh:    0,
-		DerivationPath:      "",
-		SupportedWallets:    []string{},
-		BlockExplorer:       "",
-		PublicNodeEndpoints: cnsmodels.PublicNodeEndpoints{},
-		CosmosSDKVersion:    Version,
-	}
-
 	if err != nil {
 		panic(err)
 	}
+
 	db_config := &presto.Config{
-		PrestoURI:         c.PrestoURI,
-		SessionProperties: map[string]string{"catalog": "terra", "schema": chain.ChainName},
+		PrestoURI: c.PrestoURI,
+		Catalog:   "terra",
+		Schema:    c.ChainID,
 	}
+
 	db, err := database.New(db_config)
 	if err != nil {
 		l.Errorw("Unable to create presto db handle", "error", err)
 	}
-
-	startNewWatcher(chain.ChainName, c, l, db, false)
+	sync := sync.New(c, l)
+	startNewWatcher(c, l, db, sync)
 
 	for range time.Tick(1 * time.Second) {
 		continue
@@ -84,17 +68,17 @@ func main() {
 
 }
 
-func startNewWatcher(chainName string, config *rpcwatcher.Config,
-	l *zap.SugaredLogger, db *database.Instance, isNewChain bool) {
+func startNewWatcher(config *rpcwatcher.Config,
+	l *zap.SugaredLogger, db *database.Instance, sync syncer_types.Syncer) {
 	eventMappings := rpcwatcher.StandardMappings
 
 	grpcEndpoint := fmt.Sprintf("%s:%d", "127.0.0.1", grpcPort)
 
-	watcher, err := rpcwatcher.NewWatcher(config.RpcURL, chainName, l, config.ApiURL, grpcEndpoint, rpcwatcher.EventsToSubTo, eventMappings, config, db)
+	watcher, err := rpcwatcher.NewWatcher(config.RpcURL, config.ChainID, l, config.ApiURL, grpcEndpoint, rpcwatcher.EventsToSubTo, eventMappings, config, db, &sync)
 	if err != nil {
 		l.Errorw("cannot create chain", "error", err)
 	}
-	l.Debugw("connected", "chainName", chainName)
+	l.Debugw("connected", "chainName", config.ChainID)
 
 	ctx := context.Background()
 	rpcwatcher.Start(watcher, ctx)

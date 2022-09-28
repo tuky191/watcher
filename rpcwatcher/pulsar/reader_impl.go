@@ -12,7 +12,6 @@ import (
 type ReaderInstance struct {
 	client pulsar.Client
 	Reader pulsar.Reader
-	ctx    context.Context
 	o      PulsarOptions
 }
 
@@ -51,17 +50,18 @@ func NewReaderWithClient(c pulsar.Client, p pulsar.ReaderOptions) (pulsar.Reader
 
 func (i *ReaderInstance) ReadLastMessage(log *zap.SugaredLogger, result interface{}) error {
 
-	msg, err := i.Reader.Next(i.ctx)
-	if err != nil {
-		log.Errorw("cannot read latest message", "error", err)
+	if i.Reader.HasNext() {
+		msg, err := i.Reader.Next(context.Background())
+		if err != nil {
+			log.Errorw("cannot read latest message", "error", err)
 
+		}
+		err = msg.GetSchemaValue(&result)
+		if err != nil {
+			return err
+		}
+		log.Debugw("received message with", "MessageId", fmt.Sprint(msg.ID()), "content", result)
 	}
-	err = msg.GetSchemaValue(&result)
-	if err != nil {
-		return err
-	}
-	//spew.Dump(result)
-	log.Debugw("received message in:", "data.Query", "with", "MessageId", fmt.Sprint(msg.ID()), "content", result)
 
 	return nil
 

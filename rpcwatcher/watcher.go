@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"rpc_watcher/rpcwatcher/avro"
 	"rpc_watcher/rpcwatcher/database"
+	syncer_types "rpc_watcher/rpcwatcher/helper"
 	watcher_pulsar "rpc_watcher/rpcwatcher/pulsar"
 	"strconv"
 	"time"
@@ -69,6 +70,7 @@ type Watcher struct {
 	client            *client.WSClient
 	l                 *zap.SugaredLogger
 	db                *database.Instance
+	sync              *syncer_types.Syncer
 	Producers         map[string]watcher_pulsar.Producer
 	runContext        context.Context
 	endpoint          string
@@ -88,6 +90,7 @@ func NewWatcher(
 	eventTypeMappings map[string][]DataHandler,
 	config *Config,
 	database *database.Instance,
+	sync *syncer_types.Syncer,
 ) (*Watcher, error) {
 	if len(eventTypeMappings) == 0 {
 		return nil, fmt.Errorf("event type mappings cannot be empty")
@@ -157,6 +160,7 @@ func NewWatcher(
 		ErrorChannel:      make(chan error),
 		watchdog:          wd,
 		config:            config,
+		sync:              sync,
 	}
 
 	//w.producers[""].SendMessage()
@@ -253,7 +257,7 @@ func resubscribe(w *Watcher) {
 		count++
 		w.l.Debugw("this is count", "count", count)
 
-		ww, err := NewWatcher(w.endpoint, w.Name, w.l, w.apiUrl, w.grpcEndpoint, w.subs, w.eventTypeMappings, w.config, w.db)
+		ww, err := NewWatcher(w.endpoint, w.Name, w.l, w.apiUrl, w.grpcEndpoint, w.subs, w.eventTypeMappings, w.config, w.db, w.sync)
 		if err != nil {
 			w.l.Errorw("cannot resubscribe to chain", "name", w.Name, "endpoint", w.endpoint, "error", err)
 			continue

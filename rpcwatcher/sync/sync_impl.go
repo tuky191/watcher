@@ -9,7 +9,9 @@ import (
 	"rpc_watcher/rpcwatcher"
 	"rpc_watcher/rpcwatcher/avro"
 	"rpc_watcher/rpcwatcher/database"
+	syncer_types "rpc_watcher/rpcwatcher/helper"
 	watcher_pulsar "rpc_watcher/rpcwatcher/pulsar"
+
 	"strconv"
 	"time"
 
@@ -29,13 +31,13 @@ import (
 )
 
 type instance struct {
-	endpoint  string
-	is_synced bool
-	logger    *zap.SugaredLogger
-	db        *database.Instance
-	p         map[string]watcher_pulsar.Producer
-	r         map[string]watcher_pulsar.Reader
-	config    *rpcwatcher.Config
+	endpoint   string
+	is_syncing bool
+	logger     *zap.SugaredLogger
+	db         *database.Instance
+	p          map[string]watcher_pulsar.Producer
+	r          map[string]watcher_pulsar.Reader
+	config     *rpcwatcher.Config
 }
 
 type block struct {
@@ -48,9 +50,9 @@ type block_range struct {
 	blocks     []block
 }
 
-func InitBlocks(height int64, size int64) []block_range {
+func InitBlocks(latest_published_height int64, height int64, size int64) []block_range {
 	result := []block_range{}
-	for i := int64(0); i <= height; i += size {
+	for i := int64(latest_published_height); i <= height; i += size {
 		blocks := []block{}
 		var limit int64
 		if i+size < height {
@@ -71,7 +73,7 @@ func InitBlocks(height int64, size int64) []block_range {
 	return result
 }
 
-func New(c *rpcwatcher.Config, l *zap.SugaredLogger) Syncer {
+func New(c *rpcwatcher.Config, l *zap.SugaredLogger) syncer_types.Syncer {
 	db_config := &presto.Config{
 		PrestoURI: c.PrestoURI,
 		Catalog:   "terra",
@@ -115,7 +117,7 @@ func New(c *rpcwatcher.Config, l *zap.SugaredLogger) Syncer {
 		readers[eventKind] = r
 
 	}
-	options := SyncerOptions{
+	options := syncer_types.SyncerOptions{
 		Endpoint:  c.RpcURL,
 		Logger:    l,
 		Database:  presto_db,
@@ -123,13 +125,13 @@ func New(c *rpcwatcher.Config, l *zap.SugaredLogger) Syncer {
 		Readers:   readers,
 	}
 	ii := &instance{
-		endpoint:  options.Endpoint,
-		logger:    options.Logger,
-		db:        options.Database,
-		p:         options.Producers,
-		r:         options.Readers,
-		config:    c,
-		is_synced: false,
+		endpoint:   options.Endpoint,
+		logger:     options.Logger,
+		db:         options.Database,
+		p:          options.Producers,
+		r:          options.Readers,
+		config:     c,
+		is_syncing: false,
 	}
 	return ii
 }
@@ -311,23 +313,42 @@ func (i *instance) getTx(txHashSlice types.Tx) abci.TxResult {
 	return result
 }
 
-func (i *instance) Run() {
+func (i *instance) Run(sync_from_latest bool) {
 	batch := int64(100000)
-
+	i.is_syncing = true
+	var latest_published_block_height int64
+	var latest_published_block *block_feed.BlockResult
 	latest_block, err := i.GetLatestBlock()
 	if err != nil {
-		i.logger.Errorw("Unable to get latest block", "error", err)
+		i.logger.Errorw("Unable to get latest published block", "error", err)
 	}
-	i.logger.Debugw("Latest block:", "block", latest_block.Block.Height)
+	if sync_from_latest {
+		latest_published_block, err = i.GetLatestPublishedBlock()
+		if err != nil {
+			i.logger.Errorw("Unable to get latest block", "error", err)
+			latest_published_block_height = 0
+		} else {
+			if latest_published_block.Block != nil {
+				latest_published_block_height = latest_published_block.Block.Height
+			} else {
+				latest_published_block_height = 0
+			}
+		}
+	} else {
+		latest_published_block_height = 0
+	}
 
+	i.logger.Debugw("Latest block:", "block", latest_block.Block.Height)
+	i.logger.Debugw("Latest published block:", "block", latest_published_block_height)
 	if latest_block.Block.Height < batch {
 		batch = latest_block.Block.Height
 	}
-	blocks := InitBlocks(latest_block.Block.Height, batch)
+	blocks := InitBlocks(latest_published_block_height, latest_block.Block.Height, batch)
 
 	for _, block_range := range blocks {
 		published_blocks, err := i.getPublishedBlockHeights(block_range.min_height, block_range.max_height)
 		if err != nil {
+			i.is_syncing = false
 			i.logger.Fatalw("Failed to query pulsar sql for published blocks", "error", err)
 		}
 		for bl_index, block := range block_range.blocks {
@@ -338,6 +359,7 @@ func (i *instance) Run() {
 				i.logger.Debugw("Block has not been published yet: ", "height", block.height)
 				BlockResults, err := i.GetBlockByHeight(block.height)
 				if err != nil {
+					i.is_syncing = false
 					i.logger.Fatal(err)
 				}
 				if BlockResults != nil {
@@ -368,5 +390,6 @@ func (i *instance) Run() {
 
 		}
 	}
+	i.is_syncing = false
 
 }

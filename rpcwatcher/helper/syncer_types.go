@@ -1,4 +1,4 @@
-package sync
+package syncer_types
 
 import (
 	"rpc_watcher/rpcwatcher/database"
@@ -25,5 +25,5 @@ type Syncer interface {
 	GetLatestPublishedBlock() (*block_feed.BlockResult, error)
 	GetBlock(query interface{}) (*block_feed.BlockResult, error)
 	GetTxsFromBlockByHeight(height int64) []abci.TxResult
-	Run()
+	Run(sync_from_latest bool)
 }
