@@ -334,7 +334,7 @@ func (i *instance) Run(sync_from_latest bool) {
 	for latest_published_block_height < latest_block_height {
 
 		i.logger.Debugw("Latest block:", "block", latest_block_height)
-		i.logger.Debugw("Latest published block:", "block", latest_published_block_height)
+		i.logger.Debugw("Latest published block:", "block", latest_published_block_height, "publish_time", publish_time)
 
 		if latest_block_height < batch {
 			batch = latest_block_height
