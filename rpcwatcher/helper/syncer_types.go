@@ -2,6 +2,7 @@ package syncer_types
 
 import (
 	"rpc_watcher/rpcwatcher/database"
+	"time"
 
 	watcher_pulsar "rpc_watcher/rpcwatcher/pulsar"
 
@@ -22,7 +23,7 @@ type SyncerOptions struct {
 type Syncer interface {
 	GetBlockByHeight(height int64) (*block_feed.BlockResult, error)
 	GetLatestBlock() (*block_feed.BlockResult, error)
-	GetLatestPublishedBlock() (*block_feed.BlockResult, error)
+	GetLatestPublishedBlockAndPublishTime() (*block_feed.BlockResult, time.Time, error)
 	GetBlock(query interface{}) (*block_feed.BlockResult, error)
 	GetTxsFromBlockByHeight(height int64) []abci.TxResult
 	Run(sync_from_latest bool)

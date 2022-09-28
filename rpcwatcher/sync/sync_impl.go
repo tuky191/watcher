@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	abci "github.com/tendermint/tendermint/abci/types"
 
 	tmjson "github.com/tendermint/tendermint/libs/json"
@@ -145,14 +146,16 @@ func (i *instance) GetBlockByHeight(height int64) (*block_feed.BlockResult, erro
 	return result, nil
 }
 
-func (i *instance) GetLatestPublishedBlock() (*block_feed.BlockResult, error) {
+func (i *instance) GetLatestPublishedBlockAndPublishTime() (*block_feed.BlockResult, time.Time, error) {
 	result := &block_feed.BlockResult{}
-	if err := i.r[rpcwatcher.EventsBlock].ReadLastMessage(i.logger, result); err != nil {
-		i.logger.Errorw("cannot get latest published block", "error", err)
-		return nil, err
-	}
 
-	return result, nil
+	msg, err := i.r[rpcwatcher.EventsBlock].ReadLastMessage(i.logger)
+	if err != nil {
+		i.logger.Errorw("cannot get latest published block", "error", err)
+		return nil, time.Now(), err
+	}
+	msg.GetSchemaValue(&result)
+	return result, msg.PublishTime(), nil
 }
 
 func (i *instance) GetLatestBlock() (*block_feed.BlockResult, error) {
@@ -236,12 +239,12 @@ func (i *instance) fetchResponse(ru *url.URL) []byte {
 	return body
 }
 
-func (i *instance) getPublishedBlockHeights(min int64, max int64) ([]int64, error) {
+func (i *instance) getPublishedBlockHeights(min int64, max int64, publish_time time.Time) ([]int64, error) {
 	blocks := []int64{}
 	err := retry.Do(
 		func() error {
-			i.logger.Debugw(`select __sequence_id__ from pulsar."terra/` + i.config.ChainID + `".newblock where __sequence_id__ >= ` + fmt.Sprint(min) + ` and __sequence_id__ <= ` + fmt.Sprint(max))
-			response, err := i.db.Handle.Query(`select __sequence_id__ from pulsar."terra/` + i.config.ChainID + `".newblock where __sequence_id__ >= ` + fmt.Sprint(min) + ` and __sequence_id__ <= ` + fmt.Sprint(max))
+			i.logger.Debugw(`select __sequence_id__ from pulsar."terra/` + i.config.ChainID + `".newblock where __sequence_id__ >= ` + fmt.Sprint(min) + ` and __sequence_id__ <= ` + fmt.Sprint(max) + ` and __publish_time__ >= timestamp ` + `'` + publish_time.Format("2006-01-02 03:04:05.000") + `'`)
+			response, err := i.db.Handle.Query(`select __sequence_id__ from pulsar."terra/` + i.config.ChainID + `".newblock where __sequence_id__ >= ` + fmt.Sprint(min) + ` and __sequence_id__ <= ` + fmt.Sprint(max) + ` and __publish_time__ >= timestamp ` + `'` + publish_time.Format("2006-01-02 03:04:05.000") + `'`)
 			if err != nil {
 				i.logger.Errorw("Unable to get processed blocks from presto/pulsar", "error", err)
 				return err
@@ -319,9 +322,9 @@ func (i *instance) Run(sync_from_latest bool) {
 	i.is_syncing = true
 	var latest_published_block_height int64
 	var latest_block_height int64
-
+	var publish_time time.Time
 	if sync_from_latest {
-		latest_published_block_height = i.getLatestPublishedBlockHeight()
+		latest_published_block_height, publish_time = i.getLatestPublishedBlockHeightAndPublishTime()
 	} else {
 		latest_published_block_height = 0
 	}
@@ -340,7 +343,7 @@ func (i *instance) Run(sync_from_latest bool) {
 		blocks := InitBlocks(latest_published_block_height, latest_block_height, batch)
 
 		for _, block_range := range blocks {
-			published_blocks, err := i.getPublishedBlockHeights(block_range.min_height, block_range.max_height)
+			published_blocks, err := i.getPublishedBlockHeights(block_range.min_height, block_range.max_height, publish_time)
 			if err != nil {
 				i.is_syncing = false
 				i.logger.Fatalw("Failed to query pulsar sql for published blocks", "error", err)
@@ -384,7 +387,7 @@ func (i *instance) Run(sync_from_latest bool) {
 
 			}
 		}
-		latest_published_block_height = i.getLatestPublishedBlockHeight()
+		latest_published_block_height, publish_time = i.getLatestPublishedBlockHeightAndPublishTime()
 		latest_block_height = i.getLatestBlockHeight()
 	}
 
@@ -392,16 +395,17 @@ func (i *instance) Run(sync_from_latest bool) {
 
 }
 
-func (i *instance) getLatestPublishedBlockHeight() int64 {
+func (i *instance) getLatestPublishedBlockHeightAndPublishTime() (int64, time.Time) {
 
-	latest_published_block, err := i.GetLatestPublishedBlock()
+	latest_published_block, publish_time, err := i.GetLatestPublishedBlockAndPublishTime()
+	spew.Dump(publish_time)
 	if err != nil {
 		i.logger.Errorw("Unable to get latest published block", "error", err)
 	}
 	if latest_published_block.Block != nil {
-		return latest_published_block.Block.Height
+		return latest_published_block.Block.Height, publish_time
 	} else {
-		return 0
+		return 0, time.Now()
 	}
 }
 

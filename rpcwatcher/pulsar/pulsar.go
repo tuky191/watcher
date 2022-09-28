@@ -16,7 +16,7 @@ type Producer interface {
 	SendMessage(log *zap.SugaredLogger, message pulsar.ProducerMessage)
 }
 type Reader interface {
-	ReadLastMessage(log *zap.SugaredLogger, result interface{}) error
+	ReadLastMessage(log *zap.SugaredLogger) (pulsar.Message, error)
 }
 
 type TableView interface {
