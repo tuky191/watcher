@@ -314,7 +314,7 @@ func (i *instance) getTx(txHashSlice types.Tx) abci.TxResult {
 }
 
 func (i *instance) Run(sync_from_latest bool) {
-	batch := int64(1000)
+	batch := int64(100000)
 
 	i.is_syncing = true
 	var latest_published_block_height int64
