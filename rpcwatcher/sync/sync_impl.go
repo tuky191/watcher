@@ -314,82 +314,101 @@ func (i *instance) getTx(txHashSlice types.Tx) abci.TxResult {
 }
 
 func (i *instance) Run(sync_from_latest bool) {
-	batch := int64(100000)
+	batch := int64(1000)
+
 	i.is_syncing = true
 	var latest_published_block_height int64
-	var latest_published_block *block_feed.BlockResult
-	latest_block, err := i.GetLatestBlock()
-	if err != nil {
-		i.logger.Errorw("Unable to get latest published block", "error", err)
-	}
+	var latest_block_height int64
+
 	if sync_from_latest {
-		latest_published_block, err = i.GetLatestPublishedBlock()
-		if err != nil {
-			i.logger.Errorw("Unable to get latest block", "error", err)
-			latest_published_block_height = 0
-		} else {
-			if latest_published_block.Block != nil {
-				latest_published_block_height = latest_published_block.Block.Height
-			} else {
-				latest_published_block_height = 0
-			}
-		}
+		latest_published_block_height = i.getLatestPublishedBlockHeight()
 	} else {
 		latest_published_block_height = 0
 	}
 
-	i.logger.Debugw("Latest block:", "block", latest_block.Block.Height)
-	i.logger.Debugw("Latest published block:", "block", latest_published_block_height)
-	if latest_block.Block.Height < batch {
-		batch = latest_block.Block.Height
-	}
-	blocks := InitBlocks(latest_published_block_height, latest_block.Block.Height, batch)
+	latest_block_height = i.getLatestBlockHeight()
 
-	for _, block_range := range blocks {
-		published_blocks, err := i.getPublishedBlockHeights(block_range.min_height, block_range.max_height)
-		if err != nil {
-			i.is_syncing = false
-			i.logger.Fatalw("Failed to query pulsar sql for published blocks", "error", err)
+	for latest_published_block_height < latest_block_height {
+
+		i.logger.Debugw("Latest block:", "block", latest_block_height)
+		i.logger.Debugw("Latest published block:", "block", latest_published_block_height)
+
+		if latest_block_height < batch {
+			batch = latest_block_height
 		}
-		for bl_index, block := range block_range.blocks {
-			if slices.Contains(published_blocks, block.height) {
-				i.logger.Debugw("Block is already published: ", "height", block.height)
-				block_range.blocks[bl_index].published = true
-			} else {
-				i.logger.Debugw("Block has not been published yet: ", "height", block.height)
-				BlockResults, err := i.GetBlockByHeight(block.height)
-				if err != nil {
-					i.is_syncing = false
-					i.logger.Fatal(err)
-				}
-				if BlockResults != nil {
-					message := pulsar.ProducerMessage{
-						Value:       &BlockResults,
-						SequenceID:  &BlockResults.Block.Height,
-						OrderingKey: strconv.FormatInt(BlockResults.Block.Height, 10),
-						EventTime:   BlockResults.Block.Time,
+
+		blocks := InitBlocks(latest_published_block_height, latest_block_height, batch)
+
+		for _, block_range := range blocks {
+			published_blocks, err := i.getPublishedBlockHeights(block_range.min_height, block_range.max_height)
+			if err != nil {
+				i.is_syncing = false
+				i.logger.Fatalw("Failed to query pulsar sql for published blocks", "error", err)
+			}
+			for bl_index, block := range block_range.blocks {
+				if slices.Contains(published_blocks, block.height) {
+					i.logger.Debugw("Block is already published: ", "height", block.height)
+					block_range.blocks[bl_index].published = true
+				} else {
+					i.logger.Debugw("Block has not been published yet: ", "height", block.height)
+					BlockResults, err := i.GetBlockByHeight(block.height)
+					if err != nil {
+						i.is_syncing = false
+						i.logger.Fatal(err)
 					}
-					i.p[rpcwatcher.EventsBlock].SendMessage(i.logger, message)
-					TxResults := i.GetTxsFromBlockByHeight(block.height)
-					for _, txresult := range TxResults {
+					if BlockResults != nil {
 						message := pulsar.ProducerMessage{
-							Value:       &txresult,
-							SequenceID:  &txresult.Height,
-							OrderingKey: strconv.FormatInt(txresult.Height, 10),
+							Value:       &BlockResults,
+							SequenceID:  &BlockResults.Block.Height,
+							OrderingKey: strconv.FormatInt(BlockResults.Block.Height, 10),
 							EventTime:   BlockResults.Block.Time,
 						}
-						i.p[rpcwatcher.EventsTx].SendMessage(i.logger, message)
-					}
-					block_range.blocks[bl_index].published = true
+						i.p[rpcwatcher.EventsBlock].SendMessage(i.logger, message)
+						TxResults := i.GetTxsFromBlockByHeight(block.height)
+						for _, txresult := range TxResults {
+							message := pulsar.ProducerMessage{
+								Value:       &txresult,
+								SequenceID:  &txresult.Height,
+								OrderingKey: strconv.FormatInt(txresult.Height, 10),
+								EventTime:   BlockResults.Block.Time,
+							}
+							i.p[rpcwatcher.EventsTx].SendMessage(i.logger, message)
+						}
+						block_range.blocks[bl_index].published = true
 
-				} else {
-					i.logger.Error("Unable to get block %d", block.height)
+					} else {
+						i.logger.Error("Unable to get block %d", block.height)
+					}
+
 				}
 
 			}
-
 		}
+		latest_published_block_height = i.getLatestPublishedBlockHeight()
+		latest_block_height = i.getLatestBlockHeight()
 	}
+
 	i.is_syncing = false
 
+}
+
+func (i *instance) getLatestPublishedBlockHeight() int64 {
+
+	latest_published_block, err := i.GetLatestPublishedBlock()
+	if err != nil {
+		i.logger.Errorw("Unable to get latest published block", "error", err)
+	}
+	if latest_published_block.Block != nil {
+		return latest_published_block.Block.Height
+	} else {
+		return 0
+	}
+}
+
+func (i *instance) getLatestBlockHeight() int64 {
+	latest_block, err := i.GetLatestBlock()
+	if err != nil {
+		i.logger.Errorw("Unable to get latest block", "error", err)
+	}
+	return latest_block.Block.Height
 }

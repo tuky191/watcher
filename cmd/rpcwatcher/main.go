@@ -74,7 +74,7 @@ func startNewWatcher(config *rpcwatcher.Config,
 
 	grpcEndpoint := fmt.Sprintf("%s:%d", "127.0.0.1", grpcPort)
 
-	watcher, err := rpcwatcher.NewWatcher(config.RpcURL, config.ChainID, l, config.ApiURL, grpcEndpoint, rpcwatcher.EventsToSubTo, eventMappings, config, db, &sync)
+	watcher, err := rpcwatcher.NewWatcher(config.RpcURL, config.ChainID, l, config.ApiURL, grpcEndpoint, rpcwatcher.EventsToSubTo, eventMappings, config, db, sync)
 	if err != nil {
 		l.Errorw("cannot create chain", "error", err)
 	}

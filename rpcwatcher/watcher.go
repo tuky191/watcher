@@ -90,7 +90,7 @@ func NewWatcher(
 	eventTypeMappings map[string][]DataHandler,
 	config *Config,
 	database *database.Instance,
-	sync *syncer_types.Syncer,
+	sync syncer_types.Syncer,
 ) (*Watcher, error) {
 	if len(eventTypeMappings) == 0 {
 		return nil, fmt.Errorf("event type mappings cannot be empty")
@@ -160,11 +160,12 @@ func NewWatcher(
 		ErrorChannel:      make(chan error),
 		watchdog:          wd,
 		config:            config,
-		sync:              sync,
+		sync:              &sync,
 	}
 
 	//w.producers[""].SendMessage()
 	w.l.Debugw("creating rpcwatcher with config", "apiurl", apiUrl)
+	sync.Run(true)
 
 	for _, sub := range subscriptions {
 		if err := w.client.Subscribe(context.Background(), sub); err != nil {
@@ -257,7 +258,7 @@ func resubscribe(w *Watcher) {
 		count++
 		w.l.Debugw("this is count", "count", count)
 
-		ww, err := NewWatcher(w.endpoint, w.Name, w.l, w.apiUrl, w.grpcEndpoint, w.subs, w.eventTypeMappings, w.config, w.db, w.sync)
+		ww, err := NewWatcher(w.endpoint, w.Name, w.l, w.apiUrl, w.grpcEndpoint, w.subs, w.eventTypeMappings, w.config, w.db, *w.sync)
 		if err != nil {
 			w.l.Errorw("cannot resubscribe to chain", "name", w.Name, "endpoint", w.endpoint, "error", err)
 			continue
