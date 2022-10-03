@@ -1,5 +1,6 @@
 PulsarURL: 'pulsar://localhost:6650'
 RpcURL: 'http://127.0.0.1:26657'
+#RpcURL: 'https://terra-testnet-rpc.polkachu.com/'
 ApiURL: 'http://127.0.0.1:8000'
 PrestoURI: 'http://root@127.0.0.1:8081'
 Debug: true

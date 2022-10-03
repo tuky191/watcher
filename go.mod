@@ -10,6 +10,7 @@ replace (
 )
 
 require (
+	github.com/apache/pulsar/pulsar-function-go v0.0.0-20221003064209-11482048d357
 	github.com/cosmos/cosmos-sdk v0.45.4
 	github.com/emerishq/demeris-backend-models v1.5.0
 	github.com/go-playground/validator/v10 v10.10.1
