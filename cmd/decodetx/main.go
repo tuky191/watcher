@@ -11,6 +11,7 @@ import (
 	"time"
 
 	log "github.com/apache/pulsar/pulsar-function-go/logutil"
+	"github.com/davecgh/go-spew/spew"
 
 	pulsar_types "rpc_watcher/rpcwatcher/helper/types/pulsar"
 	pulsar_producer "rpc_watcher/rpcwatcher/pulsar"
@@ -78,13 +79,13 @@ func decodeTx(txResult abci.TxResult) (TxRecord, error) {
 
 func PublishFunc(ctx context.Context, in []byte) error {
 	fctx, ok := pf.FromContext(ctx)
+	spew.Dump(fctx.GetUserConfMap())
 	tx := &abci.TxResult{}
 
 	if !ok {
 		return errors.New("get Go Functions Context error")
 	}
 	record := fctx.GetCurrentRecord()
-
 	err := record.GetSchemaValue(&tx)
 
 	if err != nil {
@@ -108,7 +109,7 @@ func PublishFunc(ctx context.Context, in []byte) error {
 		jsonSchemaWithProperties := pulsar.NewJSONSchema(schema, properties)
 		o := pulsar_types.PulsarOptions{
 			ClientOptions: pulsar.ClientOptions{
-				URL:               "pulsar://localhost:6650",
+				URL:               "pulsar://proxy1:6650",
 				OperationTimeout:  30 * time.Second,
 				ConnectionTimeout: 30 * time.Second,
 			},
