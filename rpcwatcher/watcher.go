@@ -8,6 +8,7 @@ import (
 	pulsar_types "rpc_watcher/rpcwatcher/helper/types/pulsar"
 	syncer_types "rpc_watcher/rpcwatcher/helper/types/syncer"
 
+	rpc_types "rpc_watcher/rpcwatcher/helper/types/rpc"
 	watcher_pulsar "rpc_watcher/rpcwatcher/pulsar"
 	"strconv"
 	"time"
@@ -22,6 +23,7 @@ import (
 	block_feed "github.com/terra-money/mantlemint/block_feed"
 
 	"github.com/tendermint/tendermint/rpc/jsonrpc/client"
+	tendermint "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
 )
 
@@ -82,6 +84,7 @@ type Watcher struct {
 	stopErrorChannel  chan struct{}
 	watchdog          *watchdog
 	config            *Config
+	rpc               rpc_types.Rpc
 }
 
 func NewWatcher(
@@ -93,6 +96,7 @@ func NewWatcher(
 	config *Config,
 	database *database.Instance,
 	sync syncer_types.Syncer,
+	rpc rpc_types.Rpc,
 ) (*Watcher, error) {
 	if len(eventTypeMappings) == 0 {
 		return nil, fmt.Errorf("event type mappings cannot be empty")
@@ -167,9 +171,9 @@ func NewWatcher(
 		watchdog:          wd,
 		config:            config,
 		sync:              &sync,
+		rpc:               rpc,
 	}
 
-	//w.producers[""].SendMessage()
 	w.l.Debugw("creating rpcwatcher with config", "apiurl", apiUrl)
 	sync.Run(true)
 
@@ -264,7 +268,7 @@ func resubscribe(w *Watcher) {
 		count++
 		w.l.Debugw("this is count", "count", count)
 
-		ww, err := NewWatcher(w.endpoint, w.Name, w.l, w.apiUrl, w.grpcEndpoint, w.subs, w.eventTypeMappings, w.config, w.db, *w.sync)
+		ww, err := NewWatcher(w.endpoint, w.Name, w.l, w.apiUrl, w.grpcEndpoint, w.subs, w.eventTypeMappings, w.config, w.db, *w.sync, w.rpc)
 		if err != nil {
 			w.l.Errorw("cannot resubscribe to chain", "name", w.Name, "endpoint", w.endpoint, "error", err)
 			continue
@@ -318,28 +322,31 @@ func HandleMessage(w *Watcher, data coretypes.ResultEvent) {
 	txHash := txHashSlice[0]
 	chainName := w.Name
 	eventTx := data.Data.(types.EventDataTx)
-	w.l.Debugw("Transaction Info", "chainName", chainName, "txHash", txHash, "log", eventTx.Result.Log)
+	w.l.Debugw("Transaction Found, waiting to finalize block", "chainName", chainName, "txHash", txHash, "height", eventTx.Height)
 
-	if eventTx.TxResult.Result.Events == nil {
-		eventTx.TxResult.Result.Events = make([]abci.Event, 0)
-	}
+	// if eventTx.TxResult.Result.Events == nil {
+	// 	eventTx.TxResult.Result.Events = make([]abci.Event, 0)
+	// }
 
-	message := pulsar.ProducerMessage{
-		Value:       &eventTx.TxResult,
-		SequenceID:  &eventTx.TxResult.Height,
-		OrderingKey: strconv.FormatInt(eventTx.TxResult.Height, 10),
-	}
-	producer := w.Producers[data.Query]
-	producer.SendMessage(w.l, message)
+	// message := pulsar.ProducerMessage{
+	// 	Value:       &eventTx.TxResult,
+	// 	SequenceID:  &eventTx.TxResult.Height,
+	// 	OrderingKey: strconv.FormatInt(eventTx.TxResult.Height, 10),
+	// }
+	// producer := w.Producers[data.Query]
+	// producer.SendMessage(w.l, message)
 
 }
 
 func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 	w.watchdog.Ping()
 	w.l.Debugw("performed watchdog ping", "chain_name", w.Name)
-	w.l.Debugw("new block", "chain_name", w.Name)
-	realData, ok := data.Data.(types.EventDataNewBlock)
 
+	realData, ok := data.Data.(types.EventDataNewBlock)
+	if !ok {
+		panic("rpc returned block data which is not of expected type")
+	}
+	w.l.Debugw("new block", "chain_name", w.Name, "height", realData.Block.Height)
 	blockID := types.BlockID{
 		Hash:          realData.Block.Hash(),
 		PartSetHeader: realData.Block.MakePartSet(types.BlockPartSizeBytes).Header(),
@@ -347,10 +354,6 @@ func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 	BlockResults := block_feed.BlockResult{
 		BlockID: &blockID,
 		Block:   realData.Block,
-	}
-
-	if !ok {
-		panic("rpc returned block data which is not of expected type")
 	}
 
 	if realData.Block == nil {
@@ -371,6 +374,25 @@ func HandleNewBlock(w *Watcher, data coretypes.ResultEvent) {
 		OrderingKey: strconv.FormatInt(realData.Block.Height, 10),
 		EventTime:   BlockResults.Block.Time,
 	}
-	producer := w.Producers[data.Query]
-	producer.SendMessage(w.l, message)
+	block_producer := w.Producers[data.Query]
+	block_producer.SendMessage(w.l, message)
+	//TxResults := w.rpc.GetTxsFromBlockByHeight(realData.Block.Height)
+	w.l.Debugw("Block finalized and published", "chainName", w.Name, "height", realData.Block.Height)
+	TxResults := make([]abci.TxResult, 0)
+	for _, txHashSlice := range realData.Block.Data.Txs {
+		TxResults = append(TxResults, w.rpc.GetTx(txHashSlice))
+	}
+	for _, txresult := range TxResults {
+		message := pulsar.ProducerMessage{
+			Value:       &txresult,
+			SequenceID:  &txresult.Height,
+			OrderingKey: strconv.FormatInt(txresult.Height, 10),
+			EventTime:   BlockResults.Block.Time,
+		}
+		tx_producer := w.Producers[EventsTx]
+		tx_producer.SendMessage(w.l, message)
+
+		var txByte tendermint.Tx = txresult.Tx
+		w.l.Debugw("Transaction published", "chainName", w.Name, "txHash", fmt.Sprintf("%X", txByte.Hash()), "height", txresult.Height)
+	}
 }

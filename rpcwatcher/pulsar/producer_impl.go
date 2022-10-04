@@ -50,11 +50,10 @@ func NewProducerWithClient(c pulsar.Client, p pulsar.ProducerOptions) (pulsar.Pr
 	return producer, err
 }
 func (i *ProducerInstance) SendMessage(log *zap.SugaredLogger, message pulsar.ProducerMessage) {
-
 	msg_id, err := i.Producer.Send(i.ctx, &message)
 	if err != nil {
 		fmt.Println("Failed to publish message", err)
 	}
-	log.Debugw("submitted message in:", "data.Query", "with", "MessageId", fmt.Sprint(msg_id.EntryID()))
+	log.Debugw("submitted message in:", i.Producer.Topic(), "with", "MessageId", fmt.Sprint(msg_id.EntryID()))
 
 }
