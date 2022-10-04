@@ -15,7 +15,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	abci "github.com/tendermint/tendermint/abci/types"
 
 	tmjson "github.com/tendermint/tendermint/libs/json"
@@ -150,9 +149,13 @@ func (i *instance) GetLatestPublishedBlockAndPublishTime() (*block_feed.BlockRes
 	result := &block_feed.BlockResult{}
 
 	msg, err := i.r[rpcwatcher.EventsBlock].ReadLastMessage(i.logger)
+
 	if err != nil {
 		i.logger.Errorw("cannot get latest published block", "error", err)
 		return nil, time.Now(), err
+	}
+	if msg == nil {
+		return result, time.Now(), nil
 	}
 	msg.GetSchemaValue(&result)
 	return result, msg.PublishTime(), nil
@@ -398,7 +401,7 @@ func (i *instance) Run(sync_from_latest bool) {
 func (i *instance) getLatestPublishedBlockHeightAndPublishTime() (int64, time.Time) {
 
 	latest_published_block, publish_time, err := i.GetLatestPublishedBlockAndPublishTime()
-	spew.Dump(publish_time)
+
 	if err != nil {
 		i.logger.Errorw("Unable to get latest published block", "error", err)
 	}

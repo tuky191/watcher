@@ -11,9 +11,9 @@ replace (
 
 require (
 	github.com/apache/pulsar/pulsar-function-go v0.0.0-20221003064209-11482048d357
-	github.com/cosmos/cosmos-sdk v0.45.4
 	github.com/emerishq/demeris-backend-models v1.5.0
 	github.com/go-playground/validator/v10 v10.10.1
+	github.com/hamba/avro/v2 v2.1.0
 	github.com/iamolegga/enviper v1.4.0
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/spf13/viper v1.12.0
@@ -35,6 +35,7 @@ require (
 	github.com/coinbase/rosetta-sdk-go v0.7.0 // indirect
 	github.com/confio/ics23/go v0.7.0 // indirect
 	github.com/cosmos/btcutil v1.0.4 // indirect
+	github.com/cosmos/cosmos-sdk v0.45.4 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gorocksdb v1.2.0 // indirect
 	github.com/cosmos/iavl v0.17.3 // indirect
