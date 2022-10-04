@@ -29,4 +29,4 @@ WORKDIR /root
 COPY --from=go-builder /code/build/decodetx /usr/local/bin/decodetx
 
 
-CMD ["/usr/local/bin/mantlemint"]
+CMD ["/usr/local/bin/decodetx"]
