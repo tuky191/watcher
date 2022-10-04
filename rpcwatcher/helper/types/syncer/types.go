@@ -2,12 +2,10 @@ package syncer_types
 
 import (
 	"rpc_watcher/rpcwatcher/database"
+	pulsar_types "rpc_watcher/rpcwatcher/helper/types/pulsar"
 	"time"
 
-	watcher_pulsar "rpc_watcher/rpcwatcher/pulsar"
-
 	abci "github.com/tendermint/tendermint/abci/types"
-
 	block_feed "github.com/terra-money/mantlemint/block_feed"
 	"go.uber.org/zap"
 )
@@ -16,8 +14,8 @@ type SyncerOptions struct {
 	Endpoint  string
 	Logger    *zap.SugaredLogger
 	Database  *database.Instance
-	Producers map[string]watcher_pulsar.Producer
-	Readers   map[string]watcher_pulsar.Reader
+	Producers map[string]pulsar_types.Producer
+	Readers   map[string]pulsar_types.Reader
 }
 
 type Syncer interface {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	pulsar_types "rpc_watcher/rpcwatcher/helper/types/pulsar"
 
 	"github.com/apache/pulsar-client-go/pulsar"
 	"go.uber.org/zap"
@@ -12,10 +13,10 @@ import (
 type ReaderInstance struct {
 	client pulsar.Client
 	Reader pulsar.Reader
-	o      PulsarOptions
+	o      pulsar_types.PulsarOptions
 }
 
-func NewReader(o *PulsarOptions) (Reader, error) {
+func NewReader(o *pulsar_types.PulsarOptions) (pulsar_types.Reader, error) {
 	client, err := pulsar.NewClient(o.ClientOptions)
 	if err != nil {
 		log.Fatalf("Could not instantiate Pulsar client: %v", err)

@@ -3,6 +3,7 @@ package pulsar
 import (
 	"fmt"
 	"log"
+	pulsar_types "rpc_watcher/rpcwatcher/helper/types/pulsar"
 
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/davecgh/go-spew/spew"
@@ -12,10 +13,10 @@ import (
 type TablewViewInstance struct {
 	client     pulsar.Client
 	TablewView pulsar.TableView
-	o          PulsarOptions
+	o          pulsar_types.PulsarOptions
 }
 
-func NewTableView(o *PulsarOptions) (TableView, error) {
+func NewTableView(o *pulsar_types.PulsarOptions) (pulsar_types.TableView, error) {
 	client, err := pulsar.NewClient(o.ClientOptions)
 	if err != nil {
 		log.Fatalf("Could not instantiate Pulsar client: %v", err)

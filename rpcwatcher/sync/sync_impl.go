@@ -9,7 +9,8 @@ import (
 	"rpc_watcher/rpcwatcher"
 	"rpc_watcher/rpcwatcher/avro"
 	"rpc_watcher/rpcwatcher/database"
-	syncer_types "rpc_watcher/rpcwatcher/helper"
+	pulsar_types "rpc_watcher/rpcwatcher/helper/types/pulsar"
+	syncer_types "rpc_watcher/rpcwatcher/helper/types/syncer"
 	watcher_pulsar "rpc_watcher/rpcwatcher/pulsar"
 
 	"strconv"
@@ -35,8 +36,8 @@ type instance struct {
 	is_syncing bool
 	logger     *zap.SugaredLogger
 	db         *database.Instance
-	p          map[string]watcher_pulsar.Producer
-	r          map[string]watcher_pulsar.Reader
+	p          map[string]pulsar_types.Producer
+	r          map[string]pulsar_types.Reader
 	config     *rpcwatcher.Config
 }
 
@@ -85,8 +86,8 @@ func New(c *rpcwatcher.Config, l *zap.SugaredLogger) syncer_types.Syncer {
 		l.Errorw("Unable to create presto db handle", "error", err)
 	}
 
-	producers := map[string]watcher_pulsar.Producer{}
-	readers := map[string]watcher_pulsar.Reader{}
+	producers := map[string]pulsar_types.Producer{}
+	readers := map[string]pulsar_types.Reader{}
 
 	for _, eventKind := range rpcwatcher.EventsToSubTo {
 
@@ -96,7 +97,7 @@ func New(c *rpcwatcher.Config, l *zap.SugaredLogger) syncer_types.Syncer {
 		}
 		properties := make(map[string]string)
 		jsonSchemaWithProperties := pulsar.NewJSONSchema(schema, properties)
-		o := watcher_pulsar.PulsarOptions{
+		o := pulsar_types.PulsarOptions{
 			ClientOptions: pulsar.ClientOptions{
 				URL:               c.PulsarURL,
 				OperationTimeout:  30 * time.Second,

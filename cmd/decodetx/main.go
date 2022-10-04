@@ -12,6 +12,7 @@ import (
 
 	log "github.com/apache/pulsar/pulsar-function-go/logutil"
 
+	pulsar_types "rpc_watcher/rpcwatcher/helper/types/pulsar"
 	pulsar_producer "rpc_watcher/rpcwatcher/pulsar"
 
 	"github.com/apache/pulsar-client-go/pulsar"
@@ -39,7 +40,7 @@ type TxRecord struct {
 var cdc = terra.MakeEncodingConfig()
 var schema, _ = avro.GenerateAvroSchema(&TxRecord{})
 var topic string = ""
-var p pulsar_producer.Producer
+var p pulsar_types.Producer
 
 func decodeTx(txResult abci.TxResult) (TxRecord, error) {
 	var txByte tendermint.Tx = txResult.Tx
@@ -105,7 +106,7 @@ func PublishFunc(ctx context.Context, in []byte) error {
 		properties := make(map[string]string)
 		properties["pulsar"] = "EHLO"
 		jsonSchemaWithProperties := pulsar.NewJSONSchema(schema, properties)
-		o := pulsar_producer.PulsarOptions{
+		o := pulsar_types.PulsarOptions{
 			ClientOptions: pulsar.ClientOptions{
 				URL:               "pulsar://localhost:6650",
 				OperationTimeout:  30 * time.Second,

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"rpc_watcher/rpcwatcher/avro"
 	"rpc_watcher/rpcwatcher/database"
-	syncer_types "rpc_watcher/rpcwatcher/helper"
+	pulsar_types "rpc_watcher/rpcwatcher/helper/types/pulsar"
+	syncer_types "rpc_watcher/rpcwatcher/helper/types/syncer"
+
 	watcher_pulsar "rpc_watcher/rpcwatcher/pulsar"
 	"strconv"
 	"time"
@@ -71,7 +73,7 @@ type Watcher struct {
 	l                 *zap.SugaredLogger
 	db                *database.Instance
 	sync              *syncer_types.Syncer
-	Producers         map[string]watcher_pulsar.Producer
+	Producers         map[string]pulsar_types.Producer
 	runContext        context.Context
 	endpoint          string
 	grpcEndpoint      string
@@ -95,13 +97,17 @@ func NewWatcher(
 	if len(eventTypeMappings) == 0 {
 		return nil, fmt.Errorf("event type mappings cannot be empty")
 	}
-	producers := map[string]watcher_pulsar.Producer{}
+	producers := map[string]pulsar_types.Producer{}
 	for _, eventKind := range subscriptions {
 
 		schema, err := avro.GenerateAvroSchema(EventTypeMap[eventKind])
+		if err != nil {
+			logger.Panicw("unable to generate schema", "error", err)
+
+		}
 		properties := make(map[string]string)
 		jsonSchemaWithProperties := pulsar.NewJSONSchema(schema, properties)
-		o := watcher_pulsar.PulsarOptions{
+		o := pulsar_types.PulsarOptions{
 			ClientOptions: pulsar.ClientOptions{
 				URL:               config.PulsarURL,
 				OperationTimeout:  30 * time.Second,

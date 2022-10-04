@@ -13,7 +13,7 @@ import (
 
 	_ "net/http/pprof"
 	"rpc_watcher/rpcwatcher/database"
-	syncer_types "rpc_watcher/rpcwatcher/helper"
+	syncer_types "rpc_watcher/rpcwatcher/helper/types/syncer"
 	"rpc_watcher/rpcwatcher/logging"
 	"rpc_watcher/rpcwatcher/sync"
 )
