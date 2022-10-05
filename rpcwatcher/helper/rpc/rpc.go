@@ -100,15 +100,16 @@ func (i *instance) fetchResponse(ru *url.URL) []byte {
 				i.logger.Errorw("failed to retrieve the response", "err", err)
 				return err
 			}
-			if resp.StatusCode != http.StatusOK {
-				i.logger.Errorw("endpoint returned non-200 code", "code", resp.StatusCode)
-				return err
-			}
 
 			defer func() {
 				_ = resp.Body.Close()
 			}()
 			body, err = ioutil.ReadAll(resp.Body)
+			if resp.StatusCode != http.StatusOK {
+				err = fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+				i.logger.Errorw("endpoint returned non-200 code", "code", resp.StatusCode)
+				return err
+			}
 			if err != nil {
 				i.logger.Errorw("failed to read the response", "err", err)
 				return err
