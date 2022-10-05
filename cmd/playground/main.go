@@ -55,6 +55,8 @@ func main() {
 	rpc_instance := rpc.NewRPCApi(c, l)
 
 	txs := rpc_instance.GetTxsFromBlockByHeight(int64(958826))
+	//txs := rpc_instance.GetTxsFromBlockByHeight(int64(1763383))
+
 	decoded_tx, err := rpc.DecodeTx(txs[0])
 	if err != nil {
 		l.Errorw("Unable to decode tx", "error", err)

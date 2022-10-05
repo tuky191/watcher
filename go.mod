@@ -3,6 +3,7 @@ module rpc_watcher
 go 1.18
 
 replace (
+	github.com/cosmos/cosmos-sdk => github.com/terra-money/cosmos-sdk v0.45.6-terra.1
 	github.com/cosmos/relayer => github.com/cosmos/relayer v1.0.0-rc1.0.20210415100557-492378a804a6
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 	github.com/jmoiron/sqlx => github.com/abraithwaite/sqlx v1.3.2-0.20210331022513-df9bf9884350
@@ -146,7 +147,7 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0 // indirect
 	github.com/rs/zerolog v1.27.0 // indirect
 	github.com/sasha-s/go-deadlock v0.2.1-0.20190427202633-1595213edefa // indirect
-	github.com/sirupsen/logrus v1.9.0
+	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.8.2 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
@@ -154,7 +155,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.8.0
 	github.com/subosito/gotenv v1.4.0 // indirect
-	github.com/terra-money/core/v2 v2.0.1
+	github.com/terra-money/core/v2 v2.1.1
 	github.com/terra-money/mantlemint v0.1.6
 	github.com/ugorji/go/codec v1.1.7 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
