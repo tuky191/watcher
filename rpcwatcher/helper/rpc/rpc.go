@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -22,7 +23,11 @@ import (
 	tmjson "github.com/tendermint/tendermint/libs/json"
 
 	coretypes "github.com/tendermint/tendermint/rpc/core/types"
+	tendermint "github.com/tendermint/tendermint/types"
+	terra "github.com/terra-money/core/v2/app"
 )
+
+var cdc = terra.MakeEncodingConfig()
 
 type instance struct {
 	endpoint string
@@ -174,4 +179,38 @@ func NewRPCApi(c *rpcwatcher.Config, l *zap.SugaredLogger) rpc_types.Rpc {
 		config:   c,
 	}
 	return ii
+}
+
+func DecodeTx(txResult abci.TxResult) (rpc_types.TxRecord, error) {
+	var txByte tendermint.Tx = txResult.Tx
+	decoded_tx := rpc_types.TxRecord{}
+	txDecoder := cdc.TxConfig.TxDecoder()
+	jsonEncoder := cdc.TxConfig.TxJSONEncoder()
+
+	tx, decodeErr := txDecoder(txByte)
+	if decodeErr != nil {
+		return decoded_tx, decodeErr
+	}
+	hash := txByte.Hash()
+	txJSON, _ := jsonEncoder(tx)
+
+	decoded_tx.TxHash = fmt.Sprintf("%X", hash)
+	decoded_tx.Code = txResult.Result.Code
+	decoded_tx.Codespace = txResult.Result.Codespace
+	decoded_tx.GasUsed = txResult.Result.GasUsed
+	decoded_tx.GasWanted = txResult.Result.GasWanted
+	decoded_tx.Height = txResult.Height
+	decoded_tx.RawLog = txResult.Result.Log
+	decoded_tx.Events = txResult.Result.Events
+	decoded_tx.Logs = func() json.RawMessage {
+		if txResult.Result.Code == 0 {
+			return []byte(txResult.Result.Log)
+		} else {
+			out, _ := json.Marshal([]string{})
+			return out
+		}
+	}()
+
+	decoded_tx.Tx = txJSON
+	return decoded_tx, nil
 }

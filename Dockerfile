@@ -1,31 +1,35 @@
-FROM golang:1.18.2-alpine3.15 AS go-builder
-#ARG arch=x86_64
-
+# docker build . -t cosmwasm/wasmd:latest
+# docker run --rm -it cosmwasm/wasmd:latest /bin/sh
+FROM --platform=linux/amd64 golang:1.18-alpine3.14 AS go-builder
 
 # this comes from standard alpine nightly file
 #  https://github.com/rust-lang/docker-rust-nightly/blob/master/alpine3.12/Dockerfile
 # with some changes to support our toolchain, etc
 RUN set -eux; apk add --no-cache ca-certificates build-base;
 
+RUN apk add git build-base cmake linux-headers
+# NOTE: add these to run with LEDGER_ENABLED=true
+# RUN apk add libusb-dev linux-headers
 
 WORKDIR /code
 COPY . /code/
+# See https://github.com/CosmWasm/wasmvm/releases
+ADD https://github.com/CosmWasm/wasmvm/releases/download/v1.0.0/libwasmvm_muslc.x86_64.a /lib/libwasmvm_muslc.a
 
-#Build watcher
-RUN go build -o build/watcherd cmd/rpcwatcher/main.go
-#Build sync
-RUN go build -o build/syncd cmd/sync/main.go
+# use mimalloc for musl
+RUN git clone --depth 1 https://github.com/microsoft/mimalloc; cd mimalloc; mkdir build; cd build; cmake ..; make -j$(nproc); make install
 
-FROM alpine:3.15.4
+# force it to use static lib (from above) not standard libgo_cosmwasm.so file
+RUN LEDGER_ENABLED=false go build -work -tags muslc,linux -mod=readonly -ldflags="-extldflags '-L/code/mimalloc/build -lmimalloc -static'" -o /code/build/decodetx /code/cmd/decodetx/main.go
+RUN LEDGER_ENABLED=false go build -work -tags muslc,linux -mod=readonly -ldflags="-extldflags '-L/code/mimalloc/build -lmimalloc -static'" -o /code/build/rpcwatcher /code/cmd/rpcwatcher/main.go
+RUN LEDGER_ENABLED=false go build -work -tags muslc,linux -mod=readonly -ldflags="-extldflags '-L/code/mimalloc/build -lmimalloc -static'" -o /code/build/sync /code/cmd/sync/main.go
 
-RUN addgroup watcher \
-    && adduser -G watcher -D -h /watcher watcher
+FROM --platform=linux/amd64  alpine:3.12
 
-WORKDIR /watcher
+WORKDIR /root
 
-COPY --from=go-builder /code/build/watcherd /usr/local/bin/watcherd
-COPY --from=go-builder /code/build/syncd /usr/local/bin/syncd
-USER watcher
+COPY --from=go-builder /code/build/decodetx /usr/local/bin/decodetx
+COPY --from=go-builder /code/build/rpcwatcher /usr/local/bin/rpcwatcher
+COPY --from=go-builder /code/build/sync /usr/local/bin/sync
 
-
-CMD ["/usr/local/bin/watcherd"]
+CMD ["/usr/local/bin/rpcwatcher"]

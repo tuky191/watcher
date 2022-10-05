@@ -1,0 +1,67 @@
+version: '3'
+
+services:
+  pulsar_manager:
+    container_name: pulsar-manager
+    image: apachepulsar/pulsar-manager:v0.3.0
+    ports:
+      - '9527:9527'
+      - '7750:7750'
+    environment:
+      SPRING_CONFIGURATION_FILE: /pulsar-manager/pulsar-manager/application.properties
+    #volumes:
+    #  - ./application.properties:/pulsar-manager/pulsar-manager/application.properties
+    networks:
+      - watcher
+    depends_on:
+      - pulsar
+  pulsar:
+    #image: apachepulsar/pulsar:2.10.1
+    #image: apachepulsar/pulsar:2.11.0-SNAPSHOT
+    #image built for arm64-linux / apple M1
+    image: kezhenxu94/pulsar:latest
+    container_name: pulsar
+    ports:
+      - 8081:8080
+      - 8082:8081 #presto port
+      - 6650:6650
+      - 2181:2181
+      - 5005:5005
+    environment:
+      PULSAR_MEM: ' -Xms512m -Xmx512m -XX:MaxDirectMemorySize=1g'
+      PULSAR_STANDALONE_USE_ZOOKEEPER: 1
+    volumes:
+      - pulsardata:/pulsar/data
+      - pulsarconf:/pulsar/conf
+    command:
+      - /bin/bash
+      - -c
+      - |
+        nohup bin/pulsar standalone &
+        sleep 30
+        bin/pulsar sql-worker run
+
+    networks:
+      - watcher
+
+  #presto:
+  #  image: kezhenxu94/pulsar:latest
+  #  container_name: presto
+  #  ports:
+  #    - 8082:8081
+  #  volumes:
+  #    - prestodata:/pulsar/data
+  #    - prestoconf:/pulsar/conf
+  #  command: /bin/bash -c "bin/pulsar sql-worker run"
+  #  networks:
+  #    - watcher
+  #  depends_on:
+  #    - pulsar
+volumes:
+  pulsardata:
+  pulsarconf:
+  #prestodata:
+  #prestoconf:
+networks:
+  watcher:
+    driver: bridge

@@ -57,6 +57,6 @@ disk: 0
 # retryDetails config
 maxMessageRetries: 0
 deadLetterTopic: ''
-expectedHealthCheckInterval: 3
+expectedHealthCheckInterval: 0
 # metrics config
 metricsPort: 50001
