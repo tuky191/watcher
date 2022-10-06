@@ -119,7 +119,7 @@ func main() {
 	//consumerJS := pulsar.NewJSONSchema(schema, nil)
 
 	client, err := pulsar.NewClient(pulsar.ClientOptions{
-		URL: "pulsar://proxy1:6650",
+		URL: "pulsar://localhost:6650",
 	})
 	if err != nil {
 		log.Fatal(err)
