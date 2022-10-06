@@ -133,7 +133,7 @@ func main() {
 		Schema:                      jsonSchemaWithProperties,
 		SubscriptionInitialPosition: pulsar.SubscriptionPositionEarliest,
 	})
-	msg_id := pulsar.NewMessageID(305, 805, -1, 0)
+	msg_id := pulsar.NewMessageID(305, 806, -1, 0)
 
 	consumer.Seek(msg_id)
 	if err != nil {
@@ -142,8 +142,11 @@ func main() {
 	defer consumer.Close()
 	b := abci.TxResult{}
 	msg, err := consumer.Receive(context.Background())
-	spew.Dump(msg)
-	spew.Dump(msg.EventTime().Unix())
+	//spew.Dump(msg)
+	//spew.Dump(msg.EventTime().Unix())
+	if msg.EventTime().Unix() < 0 {
+		spew.Dump(msg.EventTime().Unix())
+	}
 	if err != nil {
 		log.Fatal(err)
 	}
