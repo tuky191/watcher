@@ -9,7 +9,6 @@ import (
 	"time"
 
 	log "github.com/apache/pulsar/pulsar-function-go/logutil"
-	"github.com/davecgh/go-spew/spew"
 
 	pulsar_types "rpc_watcher/rpcwatcher/helper/types/pulsar"
 	pulsar_producer "rpc_watcher/rpcwatcher/pulsar"
@@ -30,7 +29,6 @@ var p pulsar_types.Producer
 
 func PublishFunc(ctx context.Context, in []byte) error {
 	fctx, ok := pf.FromContext(ctx)
-	spew.Dump(fctx.GetUserConfMap())
 	tx := &abci.TxResult{}
 
 	if !ok {
@@ -44,7 +42,14 @@ func PublishFunc(ctx context.Context, in []byte) error {
 	}
 
 	decodedTx, err := rpc.DecodeTx(*tx)
-	decodedTx.Timestamp = record.EventTime()
+
+	//Temp fix for txs that were retrieved via websocket and didnt have event_time set. Already rectified by setting the event_time from the block timestamp value.
+	if record.EventTime().IsZero() {
+		decodedTx.Timestamp = record.PublishTime()
+	} else {
+		decodedTx.Timestamp = record.EventTime()
+	}
+
 	if err != nil {
 		log.Fatalf("Unable to decode source tx:", "tx", record.ID(), "error:", err)
 	}
