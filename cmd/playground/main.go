@@ -138,7 +138,7 @@ func main() {
 		Schema:                      jsonSchemaWithProperties,
 		SubscriptionInitialPosition: pulsar.SubscriptionPositionEarliest,
 	})
-	msg_id := pulsar.NewMessageID(305, 805, 0, -1)
+	msg_id := pulsar.NewMessageID(305, 805, -1, -1)
 
 	consumer.Seek(msg_id)
 	if err != nil {
