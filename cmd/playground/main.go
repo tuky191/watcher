@@ -2,25 +2,20 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
-	"rpc_watcher/rpcwatcher"
 	"rpc_watcher/rpcwatcher/avro"
-	"rpc_watcher/rpcwatcher/helper/rpc"
-	"rpc_watcher/rpcwatcher/logging"
 
 	"github.com/apache/pulsar-client-go/pulsar"
-	tmjson "github.com/tendermint/tendermint/libs/json"
 	"github.com/tendermint/tendermint/types"
 
 	"github.com/davecgh/go-spew/spew"
 )
 
 func main() {
-	l := logging.New(logging.LoggingConfig{
-		Debug: true,
-		JSON:  true,
-	})
+	// l := logging.New(logging.LoggingConfig{
+	// 	Debug: true,
+	// 	JSON:  true,
+	// })
 
 	// db_config := &presto.Config{
 	// 	PrestoURI: "http://root@localhost:8082",
@@ -54,24 +49,24 @@ func main() {
 
 	schema, _ := avro.GenerateAvroSchema(types.EventDataTx{})
 	//spew.Dump(schema)
-	c, err := rpcwatcher.ReadConfig()
-	if err != nil {
-		panic(err)
-	}
-	//sync_instance := sync.New(c, l)
-	rpc_instance := rpc.NewRPCApi(c, l)
+	// c, err := rpcwatcher.ReadConfig()
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// //sync_instance := sync.New(c, l)
+	// rpc_instance := rpc.NewRPCApi(c, l)
 
-	txs := rpc_instance.GetTxsFromBlockByHeight(int64(42961))
-	//txs := rpc_instance.GetTxsFromBlockByHeight(int64(1763383))
-	spew.Dump(txs)
-	decoded_tx, err := rpc.DecodeTx(txs[0])
-	if err != nil {
-		l.Errorw("Unable to decode tx", "error", err)
-	}
-	json_txt, err := tmjson.Marshal(decoded_tx)
-	fmt.Printf("%s\n", json_txt)
-	spew.Dump(json_txt)
-	log.Fatal()
+	// txs := rpc_instance.GetTxsFromBlockByHeight(int64(42961))
+	// //txs := rpc_instance.GetTxsFromBlockByHeight(int64(1763383))
+	// spew.Dump(txs)
+	// decoded_tx, err := rpc.DecodeTx(txs[0])
+	// if err != nil {
+	// 	l.Errorw("Unable to decode tx", "error", err)
+	// }
+	// json_txt, err := tmjson.Marshal(decoded_tx)
+	// fmt.Printf("%s\n", json_txt)
+	// spew.Dump(json_txt)
+	// log.Fatal()
 	// block, err := sync_instance.GetBlockByHeight(1)
 	// if err != nil {
 	// 	l.Errorw("Unable to get block", "url_string", "error", err)
