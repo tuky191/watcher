@@ -142,7 +142,7 @@ func main() {
 	defer consumer.Close()
 	b := abci.TxResult{}
 	msg, err := consumer.Receive(context.Background())
-	spew.Dump(msg.EventTime().IsZero())
+	spew.Dump(msg.EventTime().Unix())
 	if err != nil {
 		log.Fatal(err)
 	}
