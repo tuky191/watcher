@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"rpc_watcher/rpcwatcher/avro"
 
@@ -145,6 +146,10 @@ func main() {
 	//spew.Dump(msg)
 	//spew.Dump(msg.EventTime().Unix())
 	if msg.EventTime().Unix() < 0 {
+		fmt.Printf("smaller than 0")
+		spew.Dump(msg.EventTime().Unix())
+	} else {
+		fmt.Printf("bigger than 0")
 		spew.Dump(msg.EventTime().Unix())
 	}
 	if err != nil {
@@ -154,7 +159,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	spew.Dump(msg.EventTime())
+	//spew.Dump(msg.EventTime())
 	// fmt.Printf("Received message msgId: %#v\n with\n block id: %s block: %s",
 	// 	msg.ID(), spew.Sdump(b.BlockID), spew.Sdump(b.Block))
 
