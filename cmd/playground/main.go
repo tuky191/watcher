@@ -132,7 +132,7 @@ func main() {
 	defer client.Close()
 
 	consumer, err := client.Subscribe(pulsar.ConsumerOptions{
-		Topic:                       "persistent://terra/localterra/tx",
+		Topic:                       "persistent://terra/pisco-1/tx",
 		SubscriptionName:            "my-sub3",
 		Type:                        pulsar.Exclusive,
 		Schema:                      jsonSchemaWithProperties,
