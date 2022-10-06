@@ -6,7 +6,7 @@ import (
 	"rpc_watcher/rpcwatcher/avro"
 
 	"github.com/apache/pulsar-client-go/pulsar"
-	"github.com/tendermint/tendermint/types"
+	abci "github.com/tendermint/tendermint/abci/types"
 
 	"github.com/davecgh/go-spew/spew"
 )
@@ -47,7 +47,7 @@ func main() {
 	//log.Fatal()
 	//schema, _ := avro.GenerateAvroSchema(&block_feed.BlockResult{})
 
-	schema, _ := avro.GenerateAvroSchema(types.EventDataTx{})
+	schema, _ := avro.GenerateAvroSchema(abci.TxResult{})
 	//spew.Dump(schema)
 	// c, err := rpcwatcher.ReadConfig()
 	// if err != nil {
@@ -140,7 +140,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer consumer.Close()
-	b := types.EventDataTx{}
+	b := abci.TxResult{}
 	msg, err := consumer.Receive(context.Background())
 	if err != nil {
 		log.Fatal(err)
