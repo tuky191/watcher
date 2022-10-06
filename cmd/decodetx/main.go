@@ -44,10 +44,11 @@ func PublishFunc(ctx context.Context, in []byte) error {
 	decodedTx, err := rpc.DecodeTx(*tx)
 
 	//Temp fix for txs that were retrieved via websocket and didnt have event_time set. Already rectified by setting the event_time from the block timestamp value.
-	if record.EventTime().IsZero() {
-		decodedTx.Timestamp = record.PublishTime()
-	} else {
+	if !record.EventTime().IsZero() {
 		decodedTx.Timestamp = record.EventTime()
+	} else {
+		decodedTx.Timestamp = record.PublishTime()
+
 	}
 
 	if err != nil {

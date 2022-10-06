@@ -1,10 +1,17 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"rpc_watcher/rpcwatcher"
+	"rpc_watcher/rpcwatcher/avro"
 	"rpc_watcher/rpcwatcher/helper/rpc"
 	"rpc_watcher/rpcwatcher/logging"
+
+	"github.com/apache/pulsar-client-go/pulsar"
+	tmjson "github.com/tendermint/tendermint/libs/json"
+	"github.com/tendermint/tendermint/types"
 
 	"github.com/davecgh/go-spew/spew"
 )
@@ -45,7 +52,7 @@ func main() {
 	//log.Fatal()
 	//schema, _ := avro.GenerateAvroSchema(&block_feed.BlockResult{})
 
-	//schema := avro.GenerateAvroSchema(types.EventDataTx{})
+	schema, _ := avro.GenerateAvroSchema(types.EventDataTx{})
 	//spew.Dump(schema)
 	c, err := rpcwatcher.ReadConfig()
 	if err != nil {
@@ -54,14 +61,16 @@ func main() {
 	//sync_instance := sync.New(c, l)
 	rpc_instance := rpc.NewRPCApi(c, l)
 
-	txs := rpc_instance.GetTxsFromBlockByHeight(int64(958826))
+	txs := rpc_instance.GetTxsFromBlockByHeight(int64(42961))
 	//txs := rpc_instance.GetTxsFromBlockByHeight(int64(1763383))
-
+	spew.Dump(txs)
 	decoded_tx, err := rpc.DecodeTx(txs[0])
 	if err != nil {
 		l.Errorw("Unable to decode tx", "error", err)
 	}
-	spew.Dump(decoded_tx)
+	json_txt, err := tmjson.Marshal(decoded_tx)
+	fmt.Printf("%s\n", json_txt)
+	spew.Dump(json_txt)
 	log.Fatal()
 	// block, err := sync_instance.GetBlockByHeight(1)
 	// if err != nil {
@@ -76,9 +85,9 @@ func main() {
 	// log.Fatal()
 
 	// 	b := &block_feed.BlockResult{}
-	// 	properties := make(map[string]string)
-	// 	properties["pulsar"] = "EHLO"
-	// 	jsonSchemaWithProperties := pulsar.NewJSONSchema(schema, properties)
+	properties := make(map[string]string)
+	properties["pulsar"] = "EHLO"
+	jsonSchemaWithProperties := pulsar.NewJSONSchema(schema, properties)
 
 	// 	logrus_logger := logrus.StandardLogger()
 	// 	logrus_logger.SetLevel(logrus.InfoLevel)
@@ -112,39 +121,43 @@ func main() {
 
 	// 	p.SendMessage(l, message)
 
-	// 	consumerJS := pulsar.NewJSONSchema(schema, nil)
+	//consumerJS := pulsar.NewJSONSchema(schema, nil)
 
-	// 	client, err := pulsar.NewClient(pulsar.ClientOptions{
-	// 		URL: "pulsar://localhost:6650",
-	// 	})
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// 	defer client.Close()
+	client, err := pulsar.NewClient(pulsar.ClientOptions{
+		URL: "pulsar://proxy1:6650",
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer client.Close()
 
-	// 	consumer, err := client.Subscribe(pulsar.ConsumerOptions{
-	// 		Topic:                       "persistent://terra/localterra/tm.event='NewBlock'",
-	// 		SubscriptionName:            "my-sub3",
-	// 		Type:                        pulsar.Exclusive,
-	// 		Schema:                      consumerJS,
-	// 		SubscriptionInitialPosition: pulsar.SubscriptionPositionLatest,
-	// 	})
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// 	defer consumer.Close()
+	consumer, err := client.Subscribe(pulsar.ConsumerOptions{
+		Topic:                       "persistent://terra/localterra/tx",
+		SubscriptionName:            "my-sub3",
+		Type:                        pulsar.Exclusive,
+		Schema:                      jsonSchemaWithProperties,
+		SubscriptionInitialPosition: pulsar.SubscriptionPositionEarliest,
+	})
+	msg_id := pulsar.NewMessageID(305, 805, 0, -1)
 
-	// 	msg, err := consumer.Receive(context.Background())
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// 	err = msg.GetSchemaValue(&b)
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// 	fmt.Printf("Received message msgId: %#v\n with\n block id: %s block: %s",
-	// 		msg.ID(), spew.Sdump(b.BlockID), spew.Sdump(b.Block))
+	consumer.Seek(msg_id)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer consumer.Close()
+	b := types.EventDataTx{}
+	msg, err := consumer.Receive(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = msg.GetSchemaValue(&b)
+	if err != nil {
+		log.Fatal(err)
+	}
+	spew.Dump(msg.EventTime())
+	// fmt.Printf("Received message msgId: %#v\n with\n block id: %s block: %s",
+	// 	msg.ID(), spew.Sdump(b.BlockID), spew.Sdump(b.Block))
 
-	// 	consumer.Ack(msg)
+	//consumer.Ack(msg)
 
 }
