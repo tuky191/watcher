@@ -101,9 +101,9 @@ func (i *instance) fetchResponse(ru *url.URL) []byte {
 					if err := resp.Body.Close(); err != nil {
 						panic(err)
 					}
-					body, err = ioutil.ReadAll(resp.Body)
-
 				}()
+				body, err = ioutil.ReadAll(resp.Body)
+
 				if resp.StatusCode != http.StatusOK {
 					err = fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
 					i.logger.Errorw("endpoint returned non-200 code", "code", resp.StatusCode)
@@ -118,7 +118,6 @@ func (i *instance) fetchResponse(ru *url.URL) []byte {
 		retry.OnRetry(func(n uint, err error) {
 			i.logger.Warnw("Attempt:", "Retrying...", err)
 		}),
-		//retry.BackOffDelay(10,err,&retry.Config{}),
 		retry.Delay(time.Duration(10)*time.Second),
 		retry.Attempts(100),
 	)
