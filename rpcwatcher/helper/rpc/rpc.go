@@ -96,32 +96,33 @@ func (i *instance) fetchResponse(ru *url.URL) []byte {
 	retry.Do(
 		func() error {
 			resp, err := http.Get(ru.String())
-			if err != nil {
-				i.logger.Errorw("failed to retrieve the response", "err", err)
-				return err
-			}
+			if err == nil {
+				defer func() {
+					if err := resp.Body.Close(); err != nil {
+						panic(err)
+					}
+					body, err = ioutil.ReadAll(resp.Body)
 
-			defer func() {
-				_ = resp.Body.Close()
-			}()
-			body, err = ioutil.ReadAll(resp.Body)
-			if resp.StatusCode != http.StatusOK {
-				err = fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
-				i.logger.Errorw("endpoint returned non-200 code", "code", resp.StatusCode)
-				return err
+				}()
+				if resp.StatusCode != http.StatusOK {
+					err = fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+					i.logger.Errorw("endpoint returned non-200 code", "code", resp.StatusCode)
+					return err
+				}
+			} else {
+				i.logger.Errorw("failed to retrieve the response", "err", err)
 			}
-			if err != nil {
-				i.logger.Errorw("failed to read the response", "err", err)
-				return err
-			}
-			return nil
+			return err
+
 		},
 		retry.OnRetry(func(n uint, err error) {
 			i.logger.Warnw("Attempt:", "Retrying...", err)
 		}),
+		//retry.BackOffDelay(10,err,&retry.Config{}),
 		retry.Delay(time.Duration(10)*time.Second),
-		retry.Attempts(3),
+		retry.Attempts(100),
 	)
+
 	return body
 }
 
